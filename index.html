@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="description" content="Descubra novas músicas na Fenda Music">
+    <title>Fenda Music - Entrar ou Criar conta</title>
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
+    <link rel="stylesheet" href="login.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <style>
+        /* Garantia de que os toasts apareçam corretamente */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 11000;
+            width: 90%;
+            max-width: 380px;
+        }
+        .premium-toast {
+            background: #1c1826;
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            animation: slideDown 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .premium-toast.success { border-left: 4px solid #4caf50; }
+        .premium-toast.danger { border-left: 4px solid #ff5252; }
+        .premium-toast.warning { border-left: 4px solid #ffc107; }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+<script>
+    (async () => {
+        // Força logout ao carregar a tela de login (elimina qualquer resquício)
+        await supabaseClient.auth.signOut();
+        await supabaseClient.auth.setSession(null);
+        localStorage.clear();
+        sessionStorage.clear();
+        Object.keys(localStorage).forEach(k => {
+            if (k.includes('supabase') || k.includes('sb-')) localStorage.removeItem(k);
+        });
+        // Só então verifica a sessão (que agora deve ser nula)
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            // Se por algum milagre ainda tiver sessão, tenta destruir novamente
+            await supabaseClient.auth.signOut();
+            window.location.reload();
+        }
+        // Se não houver sessão, fica na tela de login normalmente
+    })();
+</script>
+    <div class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>Fenda Music</h1>
+                <p>Sua música. Seu mundo.</p>
+            </div>
+
+            <!-- Botões de alternância -->
+            <div class="auth-toggle">
+                <button id="loginModeBtn" class="toggle-btn active">Entrar</button>
+                <button id="signupModeBtn" class="toggle-btn">Criar conta</button>
+            </div>
+
+            <!-- Formulário unificado -->
+            <form id="authForm">
+                <!-- Campos que aparecem APENAS no modo cadastro -->
+                <div id="signupFields" class="dynamic-fields hidden">
+                    <div class="input-group">
+                        <input type="text" id="signupName" placeholder="Nome completo">
+                    </div>
+                    <div class="input-group">
+                        <input type="email" id="signupEmail" placeholder="E-mail">
+                    </div>
+                    <div class="input-group">
+                        <input type="password" id="signupPassword" placeholder="Senha (mínimo 6 caracteres)">
+                    </div>
+                    <div class="input-group">
+                        <input type="password" id="signupConfirmPassword" placeholder="Confirmar senha">
+                    </div>
+                </div>
+
+                <!-- Campos que aparecem APENAS no modo login -->
+                <div id="loginFields" class="dynamic-fields">
+                    <div class="input-group">
+                        <input type="email" id="loginEmail" placeholder="E-mail">
+                    </div>
+                    <div class="input-group">
+                        <input type="password" id="loginPassword" placeholder="Senha">
+                    </div>
+                </div>
+
+                <div class="forgot-password" id="forgotPasswordContainer">
+                    <a href="#" id="forgotPasswordLink">Esqueceu sua senha?</a>
+                </div>
+
+                <button type="submit" id="submitBtn" class="login-btn">Entrar</button>
+            </form>
+
+            <div class="divider">
+                <span>ou</span>
+            </div>
+
+            <button id="googleLoginBtn" class="google-btn">
+                <span class="material-symbols-rounded">account_circle</span>
+                Continuar com Google
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL PARA REDEFINIR SENHA -->
+    <div id="resetModal" class="modal-backdrop">
+        <div class="modal-content-box" style="max-width: 340px;">
+            <h3>Redefinir senha</h3>
+            <p>Digite seu e‑mail para receber o link de redefinição.</p>
+            <input type="email" id="resetEmail" placeholder="Seu e-mail">
+            <div class="modal-actions-wrapper">
+                <button id="cancelResetBtn">Cancelar</button>
+                <button id="confirmResetBtn">Enviar link</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            const toast = document.createElement('div');
+            toast.className = `premium-toast ${type}`;
+            const icon = type === 'success' ? 'check_circle' : (type === 'danger' ? 'error' : 'warning');
+            toast.innerHTML = `<span class="material-symbols-rounded">${icon}</span><p style="margin:0;">${message}</p>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 5000);
+        }
+
+        // --- Controle de modo (login / cadastro) ---
+        let isLoginMode = true;
+        const loginModeBtn = document.getElementById('loginModeBtn');
+        const signupModeBtn = document.getElementById('signupModeBtn');
+        const signupFields = document.getElementById('signupFields');
+        const loginFields = document.getElementById('loginFields');
+        const forgotContainer = document.getElementById('forgotPasswordContainer');
+        const submitBtn = document.getElementById('submitBtn');
+
+        function updateUIMode() {
+            if (isLoginMode) {
+                signupFields.classList.add('hidden');
+                loginFields.classList.remove('hidden');
+                submitBtn.textContent = 'Entrar';
+                forgotContainer.style.display = 'block';
+                loginModeBtn.classList.add('active');
+                signupModeBtn.classList.remove('active');
+            } else {
+                signupFields.classList.remove('hidden');
+                loginFields.classList.add('hidden');
+                submitBtn.textContent = 'Criar conta';
+                forgotContainer.style.display = 'none';
+                signupModeBtn.classList.add('active');
+                loginModeBtn.classList.remove('active');
+            }
+        }
+
+        loginModeBtn.addEventListener('click', () => {
+            isLoginMode = true;
+            updateUIMode();
+        });
+        signupModeBtn.addEventListener('click', () => {
+            isLoginMode = false;
+            updateUIMode();
+        });
+        updateUIMode();
+
+        // --- Login com Google ---
+        document.getElementById('googleLoginBtn').addEventListener('click', async () => {
+            const { error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.origin + '/admin.html' }
+            });
+            if (error) showToast(error.message, 'danger');
+        });
+
+        // --- Submissão do formulário ---
+        const authForm = document.getElementById('authForm');
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (isLoginMode) {
+                // LOGIN
+                const email = document.getElementById('loginEmail').value.trim();
+                const password = document.getElementById('loginPassword').value.trim();
+                if (!email || !password) {
+                    showToast('Preencha todos os campos', 'danger');
+                    return;
+                }
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                if (error) {
+                    showToast(error.message, 'danger');
+                    return;
+                }
+                if (data.user && data.user.email_confirmed_at) {
+                    const { data: profile } = await supabaseClient
+                        .from('profiles')
+                        .select('full_name')
+                        .eq('id', data.user.id)
+                        .single();
+                    localStorage.setItem('user_name', profile?.full_name || email.split('@')[0]);
+                    localStorage.setItem('user_email', email);
+                    window.location.href = 'admin.html';
+                } else {
+                    showToast('Por favor, verifique seu e-mail antes de fazer login.', 'warning');
+                    await supabaseClient.auth.signOut();
+                }
+            } else {
+                // CADASTRO
+                const name = document.getElementById('signupName').value.trim();
+                const email = document.getElementById('signupEmail').value.trim();
+                const password = document.getElementById('signupPassword').value.trim();
+                const confirm = document.getElementById('signupConfirmPassword').value.trim();
+
+                if (!name || !email || !password || !confirm) {
+                    showToast('Preencha todos os campos', 'danger');
+                    return;
+                }
+                if (password.length < 6) {
+                    showToast('A senha deve ter no mínimo 6 caracteres.', 'danger');
+                    return;
+                }
+                if (password !== confirm) {
+                    showToast('As senhas não coincidem.', 'danger');
+                    return;
+                }
+
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email,
+                    password,
+                    options: { data: { full_name: name } }
+                });
+                if (error) {
+                    showToast(error.message, 'danger');
+                    return;
+                }
+                if (data.user) {
+                    // Tenta criar perfil (se falhar, não interrompe)
+                    await supabaseClient
+                        .from('profiles')
+                        .insert([{ id: data.user.id, full_name: name, email: email }])
+                        .catch(e => console.warn('Erro ao criar perfil:', e));
+                    
+                    // Mensagem de sucesso em português
+                    showToast('✅ Cadastro realizado! Enviamos um e‑mail de confirmação. Verifique sua caixa de entrada.', 'success');
+                    
+                    // Limpa os campos do cadastro
+                    document.getElementById('signupName').value = '';
+                    document.getElementById('signupEmail').value = '';
+                    document.getElementById('signupPassword').value = '';
+                    document.getElementById('signupConfirmPassword').value = '';
+                    
+                    // Volta para o modo "Entrar" e limpa os campos de login
+                    isLoginMode = true;
+                    updateUIMode();
+                    document.getElementById('loginEmail').value = '';
+                    document.getElementById('loginPassword').value = '';
+                }
+            }
+        });
+
+        // --- Redefinição de senha ---
+        const resetModal = document.getElementById('resetModal');
+        const forgotLink = document.getElementById('forgotPasswordLink');
+        const cancelResetBtn = document.getElementById('cancelResetBtn');
+        const confirmResetBtn = document.getElementById('confirmResetBtn');
+        const resetEmailInput = document.getElementById('resetEmail');
+
+        forgotLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            resetEmailInput.value = '';
+            resetModal.classList.add('active');
+        });
+
+        cancelResetBtn.addEventListener('click', () => {
+            resetModal.classList.remove('active');
+        });
+
+        confirmResetBtn.addEventListener('click', async () => {
+            const email = resetEmailInput.value.trim();
+            if (!email || !email.includes('@')) {
+                showToast('Digite um e-mail válido.', 'danger');
+                return;
+            }
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                redirectTo: window.location.origin + '/reset-password.html'
+            });
+            if (error) {
+                showToast(error.message, 'danger');
+            } else {
+                showToast('Link de redefinição enviado! Verifique seu e-mail.', 'success');
+                resetModal.classList.remove('active');
+            }
+        });
+
+        // Verifica se já está logado (redireciona)
+        (async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) window.location.href = 'admin.html';
+        })();
+    </script>
+</body>
+</html>
