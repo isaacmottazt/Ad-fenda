@@ -12,19 +12,32 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --bg-dark: #0a0a0f;
+      --bg-card: rgba(20, 18, 30, 0.7);
+      --bg-card-hover: rgba(30, 26, 45, 0.9);
+      --purple-main: #924cff;
+      --purple-light: #b07fff;
+      --purple-accent: #c084fc;
+      --border-color: rgba(146, 76, 255, 0.2);
+      --border-hover: #b07fff;
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.6);
+    }
+
     body {
-      background: #0a0a0f;
+      background: linear-gradient(145deg, var(--bg-dark), #050308);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      color: #fff;
+      color: var(--text-primary);
       padding: 20px;
     }
 
     .admin-container {
-      max-width: 1400px;
+      max-width: 1600px;
       margin: 0 auto;
     }
 
-    /* Cabeçalho */
+    /* CABEÇALHO */
     .admin-header {
       display: flex;
       justify-content: space-between;
@@ -32,58 +45,72 @@
       flex-wrap: wrap;
       gap: 16px;
       margin-bottom: 32px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      border: 1px solid var(--border-color);
     }
 
     .admin-header h1 {
       font-size: 28px;
-      background: linear-gradient(135deg, #fff, #c084fc);
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--text-primary), var(--purple-accent));
       background-clip: text;
       -webkit-background-clip: text;
       color: transparent;
     }
 
     .logout-admin {
-      background: rgba(255,74,117,0.1);
-      border: 1px solid rgba(255,74,117,0.3);
+      background: rgba(255, 74, 117, 0.1);
+      border: 1px solid rgba(255, 74, 117, 0.3);
       border-radius: 40px;
-      padding: 8px 20px;
+      padding: 10px 24px;
       color: #ff4a75;
       font-weight: 600;
       cursor: pointer;
       transition: 0.2s;
+      font-size: 14px;
     }
 
     .logout-admin:hover {
-      background: rgba(255,74,117,0.2);
+      background: rgba(255, 74, 117, 0.2);
+      border-color: #ff4a75;
     }
 
-    /* Abas */
+    /* ABAS */
     .admin-tabs {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
       margin-bottom: 28px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      padding-bottom: 8px;
+      padding: 8px;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
     }
 
     .admin-tab {
       background: none;
       border: none;
-      color: rgba(255,255,255,0.6);
-      font-size: 16px;
+      color: var(--text-secondary);
+      font-size: 15px;
       font-weight: 600;
-      padding: 10px 20px;
-      border-radius: 40px;
+      padding: 12px 24px;
+      border-radius: 16px;
       cursor: pointer;
-      transition: 0.2s;
+      transition: all 0.2s;
+    }
+
+    .admin-tab:hover {
+      color: var(--purple-light);
     }
 
     .admin-tab.active {
-      background: rgba(146,76,255,0.2);
-      color: #b07fff;
+      background: linear-gradient(135deg, rgba(146, 76, 255, 0.3), rgba(107, 42, 212, 0.2));
+      color: var(--purple-accent);
+      border: 1px solid var(--border-color);
     }
 
     .tab-pane {
@@ -96,30 +123,43 @@
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
+      from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Cards e formulários */
+    /* CARDS E GRID */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .section-header h2 {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
     .card-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
       gap: 20px;
       margin-bottom: 32px;
     }
 
     .admin-card {
-      background: rgba(20,18,30,0.7);
+      background: var(--bg-card);
       backdrop-filter: blur(8px);
       border-radius: 24px;
-      padding: 16px;
-      border: 1px solid rgba(146,76,255,0.2);
-      transition: 0.2s;
+      padding: 20px;
+      border: 1px solid var(--border-color);
+      transition: all 0.2s;
     }
 
     .admin-card:hover {
-      border-color: #b07fff;
-      background: rgba(30,26,45,0.9);
+      border-color: var(--border-hover);
+      background: var(--bg-card-hover);
+      transform: translateY(-4px);
     }
 
     .admin-card h3 {
@@ -128,40 +168,98 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
     }
 
     .admin-card p {
       font-size: 13px;
-      color: rgba(255,255,255,0.6);
+      color: var(--text-secondary);
       margin-bottom: 8px;
       word-break: break-word;
     }
 
+    .admin-card img {
+      width: 100%;
+      max-height: 160px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin: 12px 0;
+    }
+
+    /* BOTÕES */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--purple-main), #6a2ad4);
+      border: none;
+      border-radius: 40px;
+      padding: 12px 24px;
+      font-weight: 600;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      transform: scale(1.02);
+      box-shadow: 0 8px 20px rgba(146, 76, 255, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 40px;
+      padding: 10px 20px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 13px;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(146, 76, 255, 0.15);
+      color: var(--text-primary);
+    }
+
     .btn-icon {
-      background: rgba(255,255,255,0.05);
+      background: rgba(255, 255, 255, 0.05);
       border: none;
       border-radius: 30px;
-      padding: 6px 12px;
+      padding: 8px 14px;
       font-size: 12px;
       font-weight: 500;
       cursor: pointer;
-      transition: 0.2s;
+      transition: all 0.2s;
       color: white;
       display: inline-flex;
       align-items: center;
       gap: 6px;
     }
 
-    .btn-icon.danger { color: #ff4a75; }
-    .btn-icon:hover { background: rgba(146,76,255,0.3); }
+    .btn-icon:hover {
+      background: rgba(146, 76, 255, 0.3);
+      color: var(--purple-accent);
+    }
 
+    .btn-icon.danger {
+      color: #ff4a75;
+    }
+
+    .btn-icon.danger:hover {
+      background: rgba(255, 74, 117, 0.2);
+    }
+
+    /* MODAL */
     .form-modal {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0, 0, 0, 0.8);
       backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
@@ -178,112 +276,292 @@
     }
 
     .form-modal-content {
-      background: linear-gradient(145deg, #1a1625, #120e1c);
+      background: linear-gradient(145deg, rgba(26, 22, 37, 0.95), rgba(18, 14, 28, 0.95));
+      backdrop-filter: blur(20px);
       border-radius: 32px;
       width: 90%;
-      max-width: 500px;
+      max-width: 600px;
       max-height: 85vh;
       overflow-y: auto;
-      padding: 24px;
-      border: 1px solid rgba(146,76,255,0.3);
+      padding: 32px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
     }
 
     .form-modal-content h2 {
-      margin-bottom: 20px;
+      margin-bottom: 24px;
       font-size: 24px;
+      background: linear-gradient(135deg, var(--text-primary), var(--purple-accent));
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
     }
 
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
 
     .form-group label {
       display: block;
       font-size: 13px;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: rgba(255,255,255,0.7);
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+      letter-spacing: 0.3px;
     }
 
-    .form-group input, 
-    .form-group textarea, 
+    .form-group input,
+    .form-group textarea,
     .form-group select {
       width: 100%;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(146,76,255,0.3);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-color);
       border-radius: 16px;
       padding: 12px 14px;
-      color: white;
+      color: var(--text-primary);
       font-size: 14px;
       outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      border-color: var(--purple-light);
+      background: rgba(146, 76, 255, 0.1);
+      box-shadow: 0 0 0 3px rgba(146, 76, 255, 0.1);
     }
 
     .form-group select option {
-      background: #1a1625;
+      background: var(--bg-dark);
+      color: var(--text-primary);
     }
 
     .form-group textarea {
       resize: vertical;
-      min-height: 80px;
+      min-height: 100px;
     }
 
     .form-actions {
       display: flex;
       gap: 12px;
       justify-content: flex-end;
-      margin-top: 24px;
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-color);
     }
 
-    .btn-primary {
-      background: linear-gradient(135deg, #924cff, #6a2ad4);
-      border: none;
-      border-radius: 40px;
-      padding: 10px 20px;
-      font-weight: 600;
-      color: white;
-      cursor: pointer;
-    }
-
-    .btn-secondary {
-      background: rgba(255,255,255,0.08);
-      border: none;
-      border-radius: 40px;
-      padding: 10px 20px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.7);
-      cursor: pointer;
-    }
-
+    /* TOAST */
     .toast {
       position: fixed;
       bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
-      background: #1c1826;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
       border-radius: 40px;
-      padding: 12px 24px;
+      padding: 14px 24px;
       display: flex;
       align-items: center;
       gap: 12px;
       z-index: 1100;
       animation: slideUp 0.3s ease;
+      border: 1px solid var(--border-color);
+      max-width: 90%;
+    }
+
+    .toast.error {
+      border-left: 4px solid #ff5252;
+    }
+
+    .toast.success {
       border-left: 4px solid #4caf50;
     }
 
     @keyframes slideUp {
-      from { bottom: -50px; opacity: 0; }
+      from { bottom: -60px; opacity: 0; }
       to { bottom: 30px; opacity: 1; }
     }
 
-    .empty-state {
-      text-align: center;
-      padding: 48px;
-      color: rgba(255,255,255,0.4);
+    /* TAGS E BADGES */
+    .role-badge {
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
     }
 
-    @media (max-width: 700px) {
-      .card-grid { grid-template-columns: 1fr; }
-      .admin-header { flex-direction: column; align-items: flex-start; }
+    .role-badge.admin {
+      background: rgba(146, 76, 255, 0.3);
+      color: var(--purple-accent);
+    }
+
+    .role-badge.user {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+    }
+
+    /* EMPTY STATE */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state span {
+      font-size: 48px;
+      display: block;
+      margin-bottom: 16px;
+    }
+
+    .empty-state h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    /* RESPONSIVO */
+    @media (max-width: 768px) {
+      .card-grid {
+        grid-template-columns: 1fr;
+      }
+      .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .form-modal-content {
+        width: 95%;
+        padding: 24px;
+      }
+      .admin-tabs {
+        overflow-x: auto;
+      }
+      .admin-tab {
+        white-space: nowrap;
+      }
+    }
+
+    /* UPLOAD AREA */
+    .upload-area {
+      background: var(--bg-card);
+      border: 2px dashed var(--border-color);
+      border-radius: 20px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 20px;
+    }
+
+    .upload-area:hover,
+    .upload-area.dragover {
+      border-color: var(--purple-light);
+      background: rgba(146, 76, 255, 0.1);
+    }
+
+    .upload-area span {
+      font-size: 40px;
+      display: block;
+      margin-bottom: 12px;
+    }
+
+    .upload-area p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* SEARCH RESULTS */
+    .search-results {
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+
+    .search-result-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .search-result-item:hover {
+      background: rgba(146, 76, 255, 0.15);
+      border-left: 3px solid var(--purple-main);
+    }
+
+    .search-result-item img {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+
+    .search-result-info {
+      flex: 1;
+      text-align: left;
+    }
+
+    .search-result-info strong {
+      display: block;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    .search-result-info small {
+      display: block;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* FILE UPLOAD PREVIEW */
+    .upload-preview {
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .upload-preview-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+
+    .upload-preview-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .upload-preview-item span {
+      font-size: 24px;
+    }
+
+    .upload-preview-item .name {
+      flex: 1;
+      font-size: 13px;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    .upload-preview-item .remove {
+      background: none;
+      border: none;
+      color: #ff5252;
+      cursor: pointer;
+      font-size: 20px;
+      padding: 4px 8px;
+      display: flex;
+      align-items: center;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -292,52 +570,82 @@
 <body>
 <div class="admin-container">
   <div class="admin-header">
-    <h1>🛠️ Painel Administrativo</h1>
-    <button id="adminLogoutBtn" class="logout-admin">Sair do admin</button>
+    <div>
+      <h1>🎵 Fenda Music - Painel Admin</h1>
+    </div>
+    <button id="adminLogoutBtn" class="logout-admin">
+      <span class="material-symbols-rounded" style="font-size: 18px;">logout</span>
+      Sair
+    </button>
   </div>
 
   <div class="admin-tabs">
     <button class="admin-tab active" data-tab="users">👥 Usuários</button>
     <button class="admin-tab" data-tab="musics">🎵 Músicas</button>
     <button class="admin-tab" data-tab="artists">🎤 Artistas</button>
+    <button class="admin-tab" data-tab="messages">💬 Mensagens</button>
     <button class="admin-tab" data-tab="podcasts">🎙️ Podcasts</button>
   </div>
 
-  <!-- Aba Usuários -->
+  <!-- ABA USUÁRIOS (SIMPLIFICADA) -->
   <div id="usersTab" class="tab-pane active">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div class="section-header">
       <h2>Usuários cadastrados</h2>
-      <span id="usersCount" style="background:rgba(146,76,255,0.2); padding:4px 12px; border-radius:40px;">0</span>
+      <span id="usersCount" style="background: rgba(146,76,255,0.2); padding:6px 14px; border-radius:40px; font-size:12px; font-weight:600;">0</span>
     </div>
     <div id="usersList" class="card-grid"></div>
   </div>
 
-  <!-- Aba Músicas -->
+  <!-- ABA MÚSICAS (NOVA) -->
   <div id="musicsTab" class="tab-pane">
-    <div style="margin-bottom: 20px;">
-      <button id="newMusicBtn" class="btn-primary">+ Nova música</button>
+    <div class="section-header">
+      <h2>Gerenciar músicas</h2>
+      <button id="newMusicBtn" class="btn-primary">
+        <span class="material-symbols-rounded">add_circle</span>
+        Adicionar música
+      </button>
     </div>
     <div id="musicsList" class="card-grid"></div>
   </div>
 
-  <!-- Aba Artistas -->
+  <!-- ABA ARTISTAS -->
   <div id="artistsTab" class="tab-pane">
-    <div style="margin-bottom: 20px;">
-      <button id="newArtistBtn" class="btn-primary">+ Novo artista</button>
+    <div class="section-header">
+      <h2>Gerenciar artistas</h2>
+      <button id="newArtistBtn" class="btn-primary">
+        <span class="material-symbols-rounded">add_circle</span>
+        Novo artista
+      </button>
     </div>
     <div id="artistsList" class="card-grid"></div>
   </div>
 
-  <!-- Aba Podcasts -->
+  <!-- ABA MENSAGENS (NOVA) -->
+  <div id="messagesTab" class="tab-pane">
+    <div class="section-header">
+      <h2>Enviar notificações</h2>
+      <button id="newMessageBtn" class="btn-primary">
+        <span class="material-symbols-rounded">mail</span>
+        Nova mensagem
+      </button>
+    </div>
+    <div id="messagesList" class="card-grid"></div>
+  </div>
+
+  <!-- ABA PODCASTS -->
   <div id="podcastsTab" class="tab-pane">
-    <div style="margin-bottom: 20px;">
-      <button id="newPodcastBtn" class="btn-primary">+ Novo podcast</button>
+    <div class="section-header">
+      <h2>Gerenciar podcasts</h2>
+      <button id="newPodcastBtn" class="btn-primary">
+        <span class="material-symbols-rounded">add_circle</span>
+        Novo podcast
+      </button>
     </div>
     <div id="podcastsList" class="card-grid"></div>
   </div>
 </div>
 
-<!-- Modal genérico (o conteúdo é preenchido dinamicamente pelo admin.js) -->
+<!-- MODAL GENÉRICO -->
 <div id="genericModal" class="form-modal">
   <div class="form-modal-content">
     <h2 id="modalTitle">Título</h2>
@@ -350,5 +658,7 @@
 </div>
 
 <script src="admin.js"></script>
+<script src="admin-music-upload.js"></script>
+<script src="admin-messages.js"></script>
 </body>
 </html>
