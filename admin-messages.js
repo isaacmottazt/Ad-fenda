@@ -1,5 +1,9 @@
 // ========== SISTEMA DE MENSAGENS COM TEMPLATES DINÂMICOS ==========
 
+// URL do servidor push (deploy no Render.com ou Railway)
+// Deixe null se ainda não deployou — mensagens chegam via polling
+const PUSH_SERVER_URL = null; // ex: 'https://fenda-push.onrender.com'
+
 let allUsers = [];
 
 // ========== CARREGAR USUÁRIOS PARA SELEÇÃO ==========
@@ -269,6 +273,18 @@ async function openNewMessageModal() {
       // Se ativado, disparar push (sem servidor por enquanto funciona via polling)
       if (sendPush) {
         console.log('[Mensagem] Push será entregue via polling');
+      }
+
+      // Dispara push server se configurado
+      if (PUSH_SERVER_URL && sendPush) {
+          fetch(`${PUSH_SERVER_URL}/trigger-push`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message_id: messageId }),
+          })
+          .then(r => r.json())
+          .then(r => console.log('[Push Server]', r))
+          .catch(e => console.warn('[Push Server] Offline ou erro:', e.message));
       }
 
       showToast(`Notificação enviada para ${targetUsers.length} usuário(s)!`, "success");
