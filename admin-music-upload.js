@@ -140,6 +140,24 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// ========== UPLOAD COM DIAGNÓSTICO ==========
+// Mesma lógica do uploadFileToSupabase, mas devolvendo o MOTIVO do erro
+// para mostrar na tela (não há console no fluxo mobile).
+async function _uploadAudioDiag(file) {
+  try {
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const filePath = `musics/${Date.now()}/${Date.now()}-${safeName}`;
+    const { error } = await supabaseClient.storage
+      .from(STORAGE_BUCKET)
+      .upload(filePath, file, { cacheControl: '3600', upsert: false });
+    if (error) return { url: null, reason: `storage: ${error.message}` };
+    const { data } = supabaseClient.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
+    return { url: data.publicUrl, reason: null };
+  } catch (e) {
+    return { url: null, reason: `storage: ${e.message}` };
+  }
+}
+
 // ========== MODAL DE ADICIONAR MÚSICAS ==========
 function openNewMusicModal() {
   document.getElementById('modalTitle').innerText = 'Adicionar músicas';
@@ -398,44 +416,54 @@ function openNewMusicModal() {
     statusDiv.style.display = 'block';
 
     const total = uploadQueue.length;
-    let ok = 0, failed = [];
+    let ok = 0;
+    const failedTitles = [];   // para manter na fila e tentar de novo
+    const failedReasons = [];  // para mostrar a CAUSA na tela
 
     for (let i = 0; i < total; i++) {
       const item = uploadQueue[i];
       statusText.textContent = `Enviando ${i + 1} de ${total}: ${item.title}`;
       statusBar.style.width = Math.round((i / total) * 100) + '%';
 
-      const audioUrl = await window.uploadFileToSupabase(item.file, `musics/${Date.now()}`);
-      if (!audioUrl) { failed.push(item.title); continue; }
+      const up = await _uploadAudioDiag(item.file);
+      if (!up.url) {
+        failedTitles.push(item.title);
+        failedReasons.push(`${item.title} — ${up.reason}`);
+        continue;
+      }
 
       const { error } = await supabaseClient.from('musics').insert([{
         title:  item.title.trim(),
         artist: item.artist.trim(),
-        src:    audioUrl,
+        src:    up.url,
         cover:  item.cover || null,
         genre:  item.genre || null,
         lrc:    item.lrc || null,
       }]);
-      if (error) { console.error(error); failed.push(item.title); }
+      if (error) {
+        failedTitles.push(item.title);
+        failedReasons.push(`${item.title} — banco: ${error.message}`);
+      }
       else ok++;
     }
 
     statusBar.style.width = '100%';
-    statusText.textContent = failed.length
-      ? `${ok} publicadas, ${failed.length} falharam: ${failed.join(', ')}`
-      : 'Concluído!';
     confirmBtn.disabled = false;
 
-    if (failed.length === 0) {
+    if (failedTitles.length === 0) {
+      statusText.textContent = 'Concluído!';
       setTimeout(() => {
         showToast(`${ok} música(s) publicada(s)!`, 'success');
         loadMusics();
         document.getElementById('genericModal').classList.remove('active');
       }, 800);
     } else {
-      showToast(`${failed.length} faixa(s) falharam — veja o status`, 'error');
-      // Mantém na fila só o que falhou, para tentar de novo
-      uploadQueue = uploadQueue.filter(i => failed.includes(i.title));
+      // Motivo visível e copiável — o admin roda sem console
+      statusText.innerHTML =
+        `${ok} publicada(s), ${failedTitles.length} falhou(aram):<br>` +
+        failedReasons.map(r => `<small style="color:#f87171; display:block; margin-top:4px; user-select:text;">${escapeHtml(r)}</small>`).join('');
+      showToast(`${failedTitles.length} faixa(s) falharam — motivo no status`, 'error');
+      uploadQueue = uploadQueue.filter(i => failedTitles.includes(i.title));
       renderReviewList();
       loadMusics();
     }
