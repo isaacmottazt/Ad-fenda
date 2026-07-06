@@ -69,6 +69,77 @@ async function extractAudioFromZip(zipFile, onProgress) {
   return out;
 }
 
+// ========== BUSCA iTunes/Deezer (título ⇄ artista) ==========
+let _searchCache = {};
+
+async function searchMusic(query, type = 'track') {
+  const key = `${type}:${query.toLowerCase()}`;
+  if (_searchCache[key]) return _searchCache[key];
+  let results = [];
+  try {
+    const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=${type === 'artist' ? 'musicArtist' : 'musicTrack'}&limit=6`;
+    const r = await fetch(itunesUrl);
+    const d = await r.json();
+    if (d.results?.length) {
+      results = d.results.map(it => type === 'artist'
+        ? { name: it.artistName, image: null, source: 'iTunes' }
+        : { title: it.trackName, artist: it.artistName,
+            image: (it.artworkUrl100 || '').replace('100x100', '600x600') || null,
+            source: 'iTunes' });
+    }
+  } catch (e) {}
+  if (results.length < 4) {
+    try {
+      const dz = await fetch(`https://api.deezer.com/search/${type === 'artist' ? 'artist' : 'track'}?q=${encodeURIComponent(query)}&limit=6`);
+      const dd = await dz.json();
+      if (dd.data?.length) {
+        results = results.concat(dd.data.map(it => type === 'artist'
+          ? { name: it.name, image: it.picture_medium || null, source: 'Deezer' }
+          : { title: it.title, artist: it.artist?.name || '',
+              image: it.album?.cover_big || it.album?.cover_medium || null,
+              source: 'Deezer' }));
+      }
+    } catch (e) {}
+  }
+  _searchCache[key] = results.slice(0, 8);
+  return _searchCache[key];
+}
+
+function _debounce(fn, ms) {
+  let t = null;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// Dropdown ancorado no .form-group do input (que é position:relative)
+function _attachDropdown(inputEl, results, type, onPick) {
+  _closeDropdowns(inputEl.closest('.track-review'));
+  if (!results.length) return;
+  const dd = document.createElement('div');
+  dd.className = 'search-results';
+  dd.innerHTML = results.map((r, i) => `
+    <div class="search-result-item" data-i="${i}">
+      ${r.image ? `<img src="${r.image}" alt="">` : `<span class="material-symbols-rounded" style="font-size:22px;">${type === 'artist' ? 'mic' : 'music_note'}</span>`}
+      <div class="search-result-info">
+        <strong>${escapeHtml(type === 'artist' ? r.name : r.title)}</strong>
+        <small>${escapeHtml(type === 'artist' ? r.source : `${r.artist} · ${r.source}`)}</small>
+      </div>
+    </div>`).join('');
+  dd.querySelectorAll('.search-result-item').forEach(el => {
+    el.addEventListener('click', () => { onPick(results[parseInt(el.dataset.i)]); dd.remove(); });
+  });
+  inputEl.closest('.form-group').appendChild(dd);
+}
+
+function _closeDropdowns(scope) {
+  (scope || document).querySelectorAll('.search-results').forEach(d => d.remove());
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-results') && !e.target.closest('.tr-title') && !e.target.closest('.tr-artist')) {
+    _closeDropdowns();
+  }
+});
+
 // ========== MODAL DE ADICIONAR MÚSICAS ==========
 function openNewMusicModal() {
   document.getElementById('modalTitle').innerText = 'Adicionar músicas';
@@ -155,6 +226,7 @@ function openNewMusicModal() {
         artist: tags.artist,
         genre:  '',
         cover:  '',
+        lrc:    null,
       });
     }
     renderReviewList();
@@ -206,14 +278,52 @@ function openNewMusicModal() {
             <input type="text" class="tr-cover" value="${escapeHtml(item.cover)}" placeholder="Auto ou cole uma URL">
           </div>
         </div>
-        <button type="button" class="btn-icon tr-fetch-cover">
-          <span class="material-symbols-rounded">image_search</span> Buscar capa desta faixa
-        </button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn-icon tr-fetch-cover">
+            <span class="material-symbols-rounded">image_search</span> Buscar capa
+          </button>
+          <button type="button" class="btn-icon tr-fetch-lyrics">
+            <span class="material-symbols-rounded">lyrics</span>
+            <span class="tr-lyrics-label">${item.lrc ? 'Letra ✓' : 'Buscar letra'}</span>
+          </button>
+        </div>
       `;
 
       // Edições gravam direto no item da fila
-      card.querySelector('.tr-title').addEventListener('input',  e => { item.title  = e.target.value; });
-      card.querySelector('.tr-artist').addEventListener('input', e => { item.artist = e.target.value; });
+      const titleInput  = card.querySelector('.tr-title');
+      const artistInput = card.querySelector('.tr-artist');
+
+      // Digitar busca no iTunes/Deezer; escolher um resultado preenche
+      // título + artista + capa DESTA faixa (na versão antiga a busca
+      // preenchia um formulário global, não a faixa certa)
+      titleInput.addEventListener('input', e => { item.title = e.target.value; });
+      titleInput.addEventListener('input', _debounce(async e => {
+        const q = e.target.value.trim();
+        if (q.length < 2) { _closeDropdowns(card); return; }
+        const results = await searchMusic(q, 'track');
+        if (document.activeElement !== titleInput) return; // usuário já saiu do campo
+        _attachDropdown(titleInput, results, 'track', (r) => {
+          item.title = r.title; item.artist = r.artist || item.artist;
+          titleInput.value = item.title; artistInput.value = item.artist;
+          if (r.image && !item.cover) {
+            item.cover = r.image;
+            card.querySelector('.tr-cover').value = r.image;
+            const img = card.querySelector('.track-review-cover');
+            img.src = r.image; img.style.visibility = 'visible';
+          }
+        });
+      }, 350));
+
+      artistInput.addEventListener('input', e => { item.artist = e.target.value; });
+      artistInput.addEventListener('input', _debounce(async e => {
+        const q = e.target.value.trim();
+        if (q.length < 2) { _closeDropdowns(card); return; }
+        const results = await searchMusic(q, 'artist');
+        if (document.activeElement !== artistInput) return;
+        _attachDropdown(artistInput, results, 'artist', (r) => {
+          item.artist = r.name; artistInput.value = r.name;
+        });
+      }, 350));
       card.querySelector('.tr-genre').addEventListener('change', e => { item.genre  = e.target.value; });
       card.querySelector('.tr-cover').addEventListener('input',  e => {
         item.cover = e.target.value.trim();
@@ -234,6 +344,19 @@ function openNewMusicModal() {
           showToast('Nenhuma capa encontrada', 'error');
         }
       });
+      card.querySelector('.tr-fetch-lyrics').addEventListener('click', async (e) => {
+        const label = card.querySelector('.tr-lyrics-label');
+        if (!item.title || !item.artist) { showToast('Preencha título e artista primeiro', 'error'); return; }
+        label.textContent = 'Buscando…';
+        const lyrics = await fetchSyncedLyricsFromLRCLIB(item.artist, item.title);
+        if (!lyrics) { label.textContent = 'Buscar letra'; showToast('Nenhuma letra sincronizada encontrada', 'error'); return; }
+        const blob = new Blob([lyrics], { type: 'text/plain' });
+        const file = new File([blob], `${item.title.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.lrc`, { type: 'text/plain' });
+        const lrcUrl = await window.uploadFileToSupabase(file, 'lyrics');
+        if (lrcUrl) { item.lrc = lrcUrl; label.textContent = 'Letra ✓'; showToast('Letra sincronizada anexada!', 'success'); }
+        else { label.textContent = 'Buscar letra'; showToast('Falha ao enviar o arquivo .lrc', 'error'); }
+      });
+
       card.querySelector('.track-review-remove').addEventListener('click', () => {
         uploadQueue.splice(idx, 1);
         renderReviewList();
@@ -291,7 +414,7 @@ function openNewMusicModal() {
         src:    audioUrl,
         cover:  item.cover || null,
         genre:  item.genre || null,
-        lrc:    null,
+        lrc:    item.lrc || null,
       }]);
       if (error) { console.error(error); failed.push(item.title); }
       else ok++;

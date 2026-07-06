@@ -183,6 +183,7 @@ function openEditMusicModal(data) {
       <button type="button" id="autoFetchLyricsEditBtn" class="btn-primary" style="flex:1;">📝 Buscar letra</button>
     </div>
     <div class="form-group"><label>URL da capa</label><input type="text" id="musicCoverUrl" value="${data.cover || ''}"></div>
+    <div class="form-group"><label>Letra sincronizada (.lrc)</label><input type="text" id="musicLrc" value="${data.lrc || ''}" placeholder="URL do arquivo .lrc"></div>
     <div class="form-group"><label>Gênero</label>
       <select id="musicGenre">
         <option value="">Selecione um gênero</option>
@@ -244,9 +245,10 @@ function openEditMusicModal(data) {
         return;
       }
 
+      const lrc = document.getElementById('musicLrc')?.value.trim() || null;
       const { error } = await supabaseClient
         .from('musics')
-        .update({ title, artist, cover: coverUrl, genre })
+        .update({ title, artist, cover: coverUrl, genre, lrc })
         .eq('id', data.id);
 
       if (error) showToast("Erro ao atualizar", "error");
