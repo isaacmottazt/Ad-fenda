@@ -467,7 +467,11 @@ async function initAdmin() {
     loadUsers(),
     loadMusics(),
     loadArtists(),
-    loadPodcasts()
+    loadPodcasts(),
+    // A versão anterior nunca carregava mensagens no boot —
+    // a aba começava vazia até você enviar algo
+    (typeof loadMessages === 'function' ? loadMessages() : Promise.resolve()),
+    (typeof loadSubmissions === 'function' ? loadSubmissions() : Promise.resolve()),
   ]);
 
   const tabs = document.querySelectorAll('.admin-tab');
@@ -478,6 +482,10 @@ async function initAdmin() {
     return;
   }
 
+  const TAB_TITLES = {
+    users: 'Usuários', musics: 'Músicas', artists: 'Artistas',
+    messages: 'Mensagens', podcasts: 'Podcasts',
+  };
   function switchTab(tabId) {
     panes.forEach(pane => pane.classList.remove('active'));
     const targetPane = document.getElementById(tabId + 'Tab');
@@ -489,6 +497,9 @@ async function initAdmin() {
         tab.classList.remove('active');
       }
     });
+    const titleEl = document.getElementById('adminSectionTitle');
+    if (titleEl) titleEl.textContent = TAB_TITLES[tabId] || 'Painel';
+    window.scrollTo({ top: 0 });
   }
 
   tabs.forEach(tab => {

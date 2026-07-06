@@ -373,28 +373,58 @@ async function loadMessages() {
     .order('created_at', { ascending: false })
     .limit(50);
 
-  if (error) {
-    console.error('Erro ao carregar mensagens:', error);
-    return;
-  }
-
   const container = document.getElementById('messagesList');
+  if (!container) return;
+  if (error) { console.error('Erro ao carregar mensagens:', error); return; }
   container.innerHTML = '';
 
   if (!data || data.length === 0) {
-    container.innerHTML = '<div class="empty-state"><span>💬</span><h3>Nenhuma mensagem enviada</h3></div>';
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="material-symbols-rounded">campaign</span>
+        <h3>Nenhuma mensagem enviada</h3>
+        <p>Use "Nova" para notificar os usuários.</p>
+      </div>`;
     return;
   }
 
+  // Contagem de entregas em UMA query (não uma por mensagem)
+  const counts = {};
+  try {
+    const ids = data.map(m => m.id);
+    const { data: dels } = await supabaseClient
+      .from('message_deliveries')
+      .select('message_id')
+      .in('message_id', ids);
+    (dels || []).forEach(d => { counts[d.message_id] = (counts[d.message_id] || 0) + 1; });
+  } catch (e) { /* contagem é cosmética */ }
+
+  const typeMeta = {
+    new_music:    { icon: 'music_note', label: 'Nova música' },
+    new_artist:   { icon: 'mic',        label: 'Novo artista' },
+    announcement: { icon: 'campaign',   label: 'Anúncio' },
+    custom:       { icon: 'chat',       label: 'Personalizada' },
+  };
+
   for (const msg of data) {
+    const meta = typeMeta[msg.template_type] || typeMeta.custom;
+    const d = new Date(msg.created_at);
+    const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const n = counts[msg.id];
+
     const card = document.createElement('div');
-    card.className = 'admin-card';
-    const date = new Date(msg.created_at).toLocaleDateString('pt-BR');
+    card.className = 'msg-card';
     card.innerHTML = `
-      <h3>${escapeHtml(msg.title)}</h3>
-      <p><strong>Data:</strong> ${date}</p>
-      <p><strong>Tipo:</strong> ${msg.template_type || 'Personalizada'}</p>
-      <p style="margin-top:12px; color:rgba(255,255,255,0.7);">${escapeHtml(msg.body.substring(0, 100))}${msg.body.length > 100 ? '...' : ''}</p>
+      <div class="msg-card-icon"><span class="material-symbols-rounded">${meta.icon}</span></div>
+      <div class="msg-card-body">
+        <div class="msg-card-title">${escapeHtml(msg.title)}</div>
+        <div class="msg-card-text">${escapeHtml(msg.body)}</div>
+        <div class="msg-card-meta">
+          <span class="msg-type-chip">${meta.label}</span>
+          <span>${dateStr}</span>
+          ${n ? `<span>${n} destinatário${n > 1 ? 's' : ''}</span>` : ''}
+        </div>
+      </div>
     `;
     container.appendChild(card);
   }
@@ -402,4 +432,173 @@ async function loadMessages() {
 
 function viewMessageDetails(messageId) {
   alert('Detalhes da mensagem:\nID: ' + messageId);
+}
+
+
+// ========== SUBMISSÕES DE MÚSICAS DOS USUÁRIOS ==========
+// Tabela: music_submissions (title, artist, file_url, cover, message,
+// status pending/approved/rejected). O lado do usuário será feito depois;
+// esta tela já lê, aprova (insere em musics) e recusa.
+
+async function loadSubmissions() {
+  const container = document.getElementById('subsList');
+  if (!container) return;
+
+  const { data, error } = await supabaseClient
+    .from('music_submissions')
+    .select('*, profiles:user_id ( full_name, email )')
+    .order('created_at', { ascending: false })
+    .limit(60);
+
+  if (error) {
+    // Tabela ainda não existe → instrução em vez de erro silencioso
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="material-symbols-rounded">build</span>
+        <h3>Tabela music_submissions não encontrada</h3>
+        <p>Rode o SQL de criação no Supabase para ativar esta seção.</p>
+      </div>`;
+    _updateSubsBadge(0);
+    return;
+  }
+
+  const subs = data || [];
+  const pending = subs.filter(s => s.status === 'pending');
+  _updateSubsBadge(pending.length);
+  const countEl = document.getElementById('subsCount');
+  if (countEl) countEl.textContent = `${pending.length} pendente${pending.length === 1 ? '' : 's'}`;
+
+  container.innerHTML = '';
+  if (!subs.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="material-symbols-rounded">inbox</span>
+        <h3>Nenhuma música enviada ainda</h3>
+        <p>Quando um usuário enviar uma música, ela aparece aqui para análise.</p>
+      </div>`;
+    return;
+  }
+
+  // Pendentes primeiro
+  subs.sort((a, b) => (a.status === 'pending' ? -1 : 1) - (b.status === 'pending' ? -1 : 1)
+                   || new Date(b.created_at) - new Date(a.created_at));
+
+  const statusLabel = { pending: 'Pendente', approved: 'Aprovada', rejected: 'Recusada' };
+
+  for (const sub of subs) {
+    const sender = sub.profiles?.full_name || sub.profiles?.email || 'Usuário';
+    const d = new Date(sub.created_at);
+    const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+
+    const card = document.createElement('div');
+    card.className = `sub-card ${sub.status}`;
+    card.innerHTML = `
+      <div class="sub-card-head">
+        <div class="sub-card-title">
+          <strong>${escapeHtml(sub.title || 'Sem título')}</strong>
+          <small>${escapeHtml(sub.artist || 'Artista não informado')}</small>
+        </div>
+        <span class="sub-status ${sub.status}">${statusLabel[sub.status] || sub.status}</span>
+      </div>
+      <div class="sub-meta">Enviada por ${escapeHtml(sender)} · ${dateStr}</div>
+      ${sub.message ? `<div class="sub-msg">${escapeHtml(sub.message)}</div>` : ''}
+      ${sub.file_url ? `<audio controls preload="none" src="${sub.file_url}"></audio>`
+                     : '<div class="sub-msg">Sem arquivo de áudio anexado.</div>'}
+      ${sub.status === 'pending' ? `
+      <div class="sub-actions">
+        <button class="btn-icon ok sub-approve">
+          <span class="material-symbols-rounded">check_circle</span> Aprovar e publicar
+        </button>
+        <button class="btn-icon danger sub-reject">
+          <span class="material-symbols-rounded">cancel</span> Recusar
+        </button>
+      </div>` : ''}
+    `;
+
+    card.querySelector('.sub-approve')?.addEventListener('click', () => openApproveSubmissionModal(sub));
+    card.querySelector('.sub-reject')?.addEventListener('click', () => rejectSubmission(sub));
+    container.appendChild(card);
+  }
+}
+
+function _updateSubsBadge(n) {
+  const badge = document.getElementById('navMsgBadge');
+  if (!badge) return;
+  badge.style.display = n > 0 ? 'flex' : 'none';
+  badge.textContent = n > 9 ? '9+' : String(n);
+}
+
+// Aprovar = revisar metadados e inserir em musics
+function openApproveSubmissionModal(sub) {
+  if (!sub.file_url) { showToast('Submissão sem arquivo de áudio — não dá para publicar', 'error'); return; }
+
+  document.getElementById('modalTitle').innerText = 'Revisar e publicar';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="form-group"><label>Título *</label>
+      <input type="text" id="subTitle" value="${escapeHtml(sub.title || '')}"></div>
+    <div class="form-group"><label>Artista *</label>
+      <input type="text" id="subArtist" value="${escapeHtml(sub.artist || '')}"></div>
+    <div class="form-group"><label>Gênero</label>
+      <select id="subGenre">
+        <option value="">Sem gênero</option>
+        ${['Gospel','Adoração','Louvores','Contemporâneo','Rock Cristão','MPB','Pop','Rock']
+          .map(g => `<option value="${g}">${g}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label>Capa (URL)</label>
+      <input type="text" id="subCover" value="${escapeHtml(sub.cover || '')}"></div>
+    <button type="button" id="subFetchCover" class="btn-icon">
+      <span class="material-symbols-rounded">image_search</span> Buscar capa
+    </button>
+    <audio controls preload="none" src="${sub.file_url}" style="width:100%; margin-top:12px; height:38px;"></audio>
+  `;
+  document.getElementById('genericModal').classList.add('active');
+
+  document.getElementById('subFetchCover').addEventListener('click', async () => {
+    const t = document.getElementById('subTitle').value.trim();
+    const a = document.getElementById('subArtist').value.trim();
+    if (!t || !a) { showToast('Preencha título e artista', 'error'); return; }
+    showToast('Buscando capa…');
+    const url = await fetchCoverFromDeezer(a, t);
+    if (url) { document.getElementById('subCover').value = url; showToast('Capa encontrada!', 'success'); }
+    else showToast('Nenhuma capa encontrada', 'error');
+  });
+
+  setupModalSave(async () => {
+    const title  = document.getElementById('subTitle').value.trim();
+    const artist = document.getElementById('subArtist').value.trim();
+    const genre  = document.getElementById('subGenre').value || null;
+    const cover  = document.getElementById('subCover').value.trim() || null;
+    if (!title || !artist) { showToast('Título e artista são obrigatórios', 'error'); return; }
+
+    // 1) publica no catálogo
+    const { error: insErr } = await supabaseClient.from('musics').insert([{
+      title, artist, genre, cover, src: sub.file_url, lrc: null,
+    }]);
+    if (insErr) { showToast('Erro ao publicar: ' + insErr.message, 'error'); return; }
+
+    // 2) marca a submissão como aprovada
+    const { error: updErr } = await supabaseClient
+      .from('music_submissions')
+      .update({ status: 'approved', reviewed_by: currentAdminUserId, reviewed_at: new Date() })
+      .eq('id', sub.id);
+    if (updErr) {
+      // Música já foi publicada; avisa que só o status falhou
+      showToast('Publicada, mas falhou ao marcar como aprovada: ' + updErr.message, 'error');
+    } else {
+      showToast('Música publicada no catálogo!', 'success');
+    }
+    document.getElementById('genericModal').classList.remove('active');
+    loadSubmissions();
+    loadMusics();
+  });
+}
+
+async function rejectSubmission(sub) {
+  if (!confirm(`Recusar "${sub.title || 'esta música'}"?`)) return;
+  const { error } = await supabaseClient
+    .from('music_submissions')
+    .update({ status: 'rejected', reviewed_by: currentAdminUserId, reviewed_at: new Date() })
+    .eq('id', sub.id);
+  if (error) showToast('Erro ao recusar: ' + error.message, 'error');
+  else { showToast('Submissão recusada'); loadSubmissions(); }
 }
