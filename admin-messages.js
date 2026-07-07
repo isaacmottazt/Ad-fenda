@@ -544,14 +544,42 @@ function openApproveSubmissionModal(sub) {
         ${['Gospel','Adoração','Louvores','Contemporâneo','Rock Cristão','MPB','Pop','Rock']
           .map(g => `<option value="${g}">${g}</option>`).join('')}
       </select></div>
-    <div class="form-group"><label>Capa (URL)</label>
-      <input type="text" id="subCover" value="${escapeHtml(sub.cover || '')}"></div>
-    <button type="button" id="subFetchCover" class="btn-icon">
-      <span class="material-symbols-rounded">image_search</span> Buscar capa
-    </button>
+    <div class="form-group"><label>Capa (URL ou arquivo)</label>
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <input type="text" id="subCover" value="${escapeHtml(sub.cover || '')}" placeholder="URL" style="flex:1">
+        <label style="display:flex; align-items:center; gap:4px; padding:10px 12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:10px; cursor:pointer; font-size:12px; font-weight:700;">
+          <span class="material-symbols-rounded" style="font-size:16px;">upload</span>
+          <input type="file" id="subCoverFile" accept="image/*" style="display:none">
+        </label>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <button type="button" id="subFetchCover" class="btn-icon" style="flex:1; justify-content:center;">
+        <span class="material-symbols-rounded">image_search</span> Buscar capa
+      </button>
+    </div>
     <audio controls preload="none" src="${sub.file_url}" style="width:100%; margin-top:12px; height:38px;"></audio>
   `;
   document.getElementById('genericModal').classList.add('active');
+
+  document.getElementById('subCoverFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showToast('Enviando capa…');
+    try {
+      const safe = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const path = `covers/${Date.now()}-${safe}`;
+      const { error } = await supabaseClient.storage
+        .from('music-files')
+        .upload(path, file, { cacheControl: '3600', upsert: false });
+      if (error) throw error;
+      const { data } = supabaseClient.storage.from('music-files').getPublicUrl(path);
+      document.getElementById('subCover').value = data.publicUrl;
+      showToast('Capa enviada!', 'success');
+    } catch (err) {
+      showToast('Erro na capa: ' + (err.message || err), 'error');
+    }
+  });
 
   document.getElementById('subFetchCover').addEventListener('click', async () => {
     const t = document.getElementById('subTitle').value.trim();

@@ -282,6 +282,16 @@ function openNewMusicModal() {
             <input type="text" class="tr-artist" value="${escapeHtml(item.artist)}">
           </div>
         </div>
+        <div class="form-group">
+          <label>Capa (URL ou arquivo)</label>
+          <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <input type="text" class="tr-cover" value="${escapeHtml(item.cover)}" placeholder="URL" style="flex:1">
+            <label style="display:flex; align-items:center; gap:4px; padding:10px 12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:10px; cursor:pointer; font-size:12px; font-weight:700; min-width:0;">
+              <span class="material-symbols-rounded" style="font-size:16px;">upload</span>
+              <input type="file" class="tr-cover-file" accept="image/*" style="display:none">
+            </label>
+          </div>
+        </div>
         <div class="track-row-2">
           <div class="form-group">
             <label>Gênero</label>
@@ -292,8 +302,8 @@ function openNewMusicModal() {
             </select>
           </div>
           <div class="form-group">
-            <label>Capa (URL)</label>
-            <input type="text" class="tr-cover" value="${escapeHtml(item.cover)}" placeholder="Auto ou cole uma URL">
+            <label>URL da capa (atalho)</label>
+            <input type="url" class="tr-cover-url-alt" placeholder="Cole URL direto aqui também" style="font-size:11px;">
           </div>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -343,10 +353,37 @@ function openNewMusicModal() {
         });
       }, 350));
       card.querySelector('.tr-genre').addEventListener('change', e => { item.genre  = e.target.value; });
-      card.querySelector('.tr-cover').addEventListener('input',  e => {
+      const coverUrlInput = card.querySelector('.tr-cover');
+      coverUrlInput.addEventListener('input',  e => {
         item.cover = e.target.value.trim();
         const img = card.querySelector('.track-review-cover');
         img.src = item.cover; img.style.visibility = item.cover ? 'visible' : 'hidden';
+      });
+
+      card.querySelector('.tr-cover-file').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const status = document.createElement('div');
+        status.style.cssText = 'font-size:11px; color:rgba(255,255,255,.6); margin-top:4px;';
+        status.textContent = 'Enviando capa…';
+        card.querySelector('.form-group:has(.tr-cover)').appendChild(status);
+        try {
+          const safe = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+          const path = `covers/${Date.now()}-${safe}`;
+          const { error } = await supabaseClient.storage
+            .from('music-files')
+            .upload(path, file, { cacheControl: '3600', upsert: false });
+          if (error) throw error;
+          const { data } = supabaseClient.storage.from('music-files').getPublicUrl(path);
+          item.cover = data.publicUrl;
+          coverUrlInput.value = item.cover;
+          const img = card.querySelector('.track-review-cover');
+          img.src = item.cover; img.style.visibility = 'visible';
+          status.style.color = '#4ade80'; status.textContent = 'Capa enviada!';
+          setTimeout(() => status.remove(), 2000);
+        } catch (err) {
+          status.style.color = '#f87171'; status.textContent = 'Erro: ' + (err.message || err);
+        }
       });
       card.querySelector('.tr-fetch-cover').addEventListener('click', async () => {
         if (!item.title || !item.artist) { showToast('Preencha título e artista primeiro', 'error'); return; }
