@@ -373,6 +373,7 @@ function validatePodcastAudio(file) {
   if (!(file.type || '').startsWith('audio/') && !PODCAST_AUDIO_EXTENSIONS.includes(ext)) {
     return 'O arquivo precisa ser um áudio (MP3, M4A, WAV, OGG, AAC, OPUS ou FLAC).';
   }
+  if (!Number.isFinite(file.size) || file.size <= 0) return 'O arquivo de áudio está vazio. Selecione um arquivo válido.';
   if (file.size > PODCAST_MAX_AUDIO_BYTES) return 'O áudio não pode ultrapassar 500 MB.';
   return null;
 }
