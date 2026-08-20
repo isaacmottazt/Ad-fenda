@@ -364,9 +364,36 @@ async function deleteArtist(artistId, name) {
 }
 
 // ========== CRUD PODCASTS ==========
+const PODCAST_MAX_AUDIO_BYTES = 500 * 1024 * 1024;
+const PODCAST_AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'ogg', 'aac', 'opus', 'flac'];
+
+function validatePodcastAudio(file) {
+  if (!file) return 'Selecione um arquivo de áudio.';
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!(file.type || '').startsWith('audio/') && !PODCAST_AUDIO_EXTENSIONS.includes(ext)) {
+    return 'O arquivo precisa ser um áudio (MP3, M4A, WAV, OGG, AAC, OPUS ou FLAC).';
+  }
+  if (file.size > PODCAST_MAX_AUDIO_BYTES) return 'O áudio não pode ultrapassar 500 MB.';
+  return null;
+}
+
+async function uploadPodcastAsset(file, folder) {
+  if (!file) return null;
+  const validation = folder.startsWith('podcasts/audio') ? validatePodcastAudio(file) : null;
+  if (validation) { showToast(validation, 'error'); return null; }
+  return typeof window.uploadFileToSupabase === 'function'
+    ? window.uploadFileToSupabase(file, folder)
+    : await uploadFileToSupabase(file, folder);
+}
+
 async function loadPodcasts() {
   const { data, error } = await supabaseClient.from('podcasts').select('*').order('created_at', { ascending: false });
-  if (error) { console.error(error); return; }
+  if (error) {
+    console.error('loadPodcasts:', error);
+    const container = document.getElementById('podcastsList');
+    if (container) container.innerHTML = '<div class="empty-state"><span class="material-symbols-rounded">podcasts</span><p>Não foi possível carregar os podcasts.</p></div>';
+    return;
+  }
   const container = document.getElementById('podcastsList');
   container.innerHTML = '';
   for (const pod of data) {
@@ -374,9 +401,11 @@ async function loadPodcasts() {
     card.className = 'admin-card';
     card.innerHTML = `
       <h3>${escapeHtml(pod.title)}</h3>
-      ${pod.cover_url ? `<img src="${pod.cover_url}" alt="Capa">` : ''}
+      ${pod.cover_url ? `<img src="${escapeHtml(pod.cover_url)}" alt="Capa">` : ''}
       <p>${escapeHtml(pod.description || '')}</p>
-      <div style="display: flex; gap: 8px;">
+      ${pod.audio_url ? `<audio controls preload="none" src="${escapeHtml(pod.audio_url)}" style="width:100%; margin:10px 0 12px;"></audio>` : ''}
+      <small style="display:block;color:var(--text-faint);margin-bottom:10px;">Publicado em ${pod.created_at ? new Date(pod.created_at).toLocaleDateString('pt-BR') : '—'}</small>
+      <div style="display: flex; gap: 8px; flex-wrap:wrap;">
         <button class="btn-icon edit-podcast" data-id="${pod.id}" data-title="${escapeHtml(pod.title)}" data-desc="${escapeHtml(pod.description || '')}" data-cover="${pod.cover_url || ''}" data-audio="${pod.audio_url}">
           <span class="material-symbols-rounded">edit</span> Editar
         </button>
@@ -395,9 +424,11 @@ function openNewPodcastModal() {
   document.getElementById('modalTitle').innerText = "Novo podcast";
   document.getElementById('modalBody').innerHTML = `
     <div class="form-group"><label>Título *</label><input type="text" id="podcastTitle"></div>
-    <div class="form-group"><label>Descrição</label><textarea id="podcastDesc"></textarea></div>
-    <div class="form-group"><label>Capa (URL)</label><input type="text" id="podcastCover"></div>
-    <div class="form-group"><label>Arquivo de áudio *</label><input type="file" id="podcastAudio" accept="audio/*"></div>
+    <div class="form-group"><label>Descrição</label><textarea id="podcastDesc" placeholder="Sobre este episódio..."></textarea></div>
+    <div class="form-group"><label>Capa (URL opcional)</label><input type="url" id="podcastCover" placeholder="https://..."></div>
+    <div class="form-group"><label>Enviar capa (opcional)</label><input type="file" id="podcastCoverFile" accept="image/*"></div>
+    <div class="form-group"><label>Arquivo de áudio *</label><input type="file" id="podcastAudio" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac,.opus,.flac"></div>
+    <p style="font-size:11px;color:var(--text-faint);">O áudio será publicado no catálogo e poderá ser reproduzido na Biblioteca.</p>
   `;
   const modal = document.getElementById('genericModal');
   modal.classList.add('active');
@@ -405,11 +436,16 @@ function openNewPodcastModal() {
     const title = document.getElementById('podcastTitle').value.trim();
     const desc = document.getElementById('podcastDesc').value.trim();
     const audioFile = document.getElementById('podcastAudio').files[0];
-    const coverUrl = document.getElementById('podcastCover').value.trim();
-    if (!title || !audioFile) { showToast("Preencha título e arquivo de áudio", "error"); return; }
-    const audioUrl = await window.uploadFileToSupabase(audioFile, `podcasts/${Date.now()}`);
-    if (!audioUrl) { showToast("Falha no upload do áudio", "error"); return; }
-    const { error } = await supabaseClient.from('podcasts').insert([{ title, description: desc, audio_url: audioUrl, cover_url: coverUrl || null }]);
+    const coverFile = document.getElementById('podcastCoverFile').files[0];
+    let coverUrl = document.getElementById('podcastCover').value.trim();
+    if (!title || !audioFile) { showToast('Preencha título e arquivo de áudio', 'error'); return; }
+    const audioUrl = await uploadPodcastAsset(audioFile, `podcasts/audio/${Date.now()}`);
+    if (!audioUrl) { showToast('Falha no upload do áudio', 'error'); return; }
+    if (coverFile) {
+      coverUrl = await uploadPodcastAsset(coverFile, `podcasts/covers/${Date.now()}`);
+      if (!coverUrl) { showToast('Falha no upload da capa', 'error'); return; }
+    }
+    const { error } = await supabaseClient.from('podcasts').insert([{ title, description: desc || null, audio_url: audioUrl, cover_url: coverUrl || null }]);
     if (error) showToast("Erro ao salvar podcast", "error");
     else { showToast("Podcast adicionado!"); loadPodcasts(); modal.classList.remove('active'); }
   });
@@ -420,8 +456,9 @@ function openEditPodcastModal(data) {
   document.getElementById('modalBody').innerHTML = `
     <div class="form-group"><label>Título</label><input type="text" id="podcastTitle" value="${data.title}"></div>
     <div class="form-group"><label>Descrição</label><textarea id="podcastDesc">${data.desc}</textarea></div>
-    <div class="form-group"><label>Capa (URL)</label><input type="text" id="podcastCover" value="${data.cover}"></div>
-    <div class="form-group"><label>Novo áudio (opcional)</label><input type="file" id="podcastAudio" accept="audio/*"></div>
+    <div class="form-group"><label>Capa (URL opcional)</label><input type="url" id="podcastCover" value="${data.cover}" placeholder="https://..."></div>
+    <div class="form-group"><label>Nova capa (opcional)</label><input type="file" id="podcastCoverFile" accept="image/*"></div>
+    <div class="form-group"><label>Novo áudio (opcional)</label><input type="file" id="podcastAudio" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac,.opus,.flac"></div>
   `;
   const modal = document.getElementById('genericModal');
   modal.classList.add('active');
@@ -429,13 +466,18 @@ function openEditPodcastModal(data) {
     const title = document.getElementById('podcastTitle').value.trim();
     const desc = document.getElementById('podcastDesc').value.trim();
     const audioFile = document.getElementById('podcastAudio').files[0];
-    const coverUrl = document.getElementById('podcastCover').value.trim();
+    const coverFile = document.getElementById('podcastCoverFile').files[0];
+    let coverUrl = document.getElementById('podcastCover').value.trim();
     let audioUrl = data.audio;
     if (audioFile) {
-      audioUrl = await window.uploadFileToSupabase(audioFile, `podcasts/${Date.now()}`);
-      if (!audioUrl) { showToast("Falha no upload do áudio", "error"); return; }
+      audioUrl = await uploadPodcastAsset(audioFile, `podcasts/audio/${Date.now()}`);
+      if (!audioUrl) { showToast('Falha no upload do áudio', 'error'); return; }
     }
-    const { error } = await supabaseClient.from('podcasts').update({ title, description: desc, audio_url: audioUrl, cover_url: coverUrl || null }).eq('id', parseInt(data.id));
+    if (coverFile) {
+      coverUrl = await uploadPodcastAsset(coverFile, `podcasts/covers/${Date.now()}`);
+      if (!coverUrl) { showToast('Falha no upload da capa', 'error'); return; }
+    }
+    const { error } = await supabaseClient.from('podcasts').update({ title, description: desc || null, audio_url: audioUrl, cover_url: coverUrl || null }).eq('id', data.id);
     if (error) showToast("Erro ao atualizar", "error");
     else { showToast("Podcast atualizado!"); loadPodcasts(); modal.classList.remove('active'); }
   });
