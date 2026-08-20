@@ -381,9 +381,40 @@ async function uploadPodcastAsset(file, folder) {
   if (!file) return null;
   const validation = folder.startsWith('podcasts/audio') ? validatePodcastAudio(file) : null;
   if (validation) { showToast(validation, 'error'); return null; }
-  return typeof window.uploadFileToSupabase === 'function'
-    ? window.uploadFileToSupabase(file, folder)
-    : await uploadFileToSupabase(file, folder);
+  try {
+    const uploader = typeof window.uploadFileToSupabase === 'function'
+      ? window.uploadFileToSupabase
+      : uploadFileToSupabase;
+    return await uploader(file, folder);
+  } catch (error) {
+    console.error('uploadPodcastAsset:', error);
+    return null;
+  }
+}
+
+function storagePathFromPublicUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const marker = '/storage/v1/object/public/music-files/';
+  const index = url.indexOf(marker);
+  if (index === -1) return null;
+  try { return decodeURIComponent(url.slice(index + marker.length)); }
+  catch (_) { return url.slice(index + marker.length); }
+}
+
+async function removeUploadedPodcastAssets(urls) {
+  const paths = [...new Set((urls || []).map(storagePathFromPublicUrl).filter(Boolean))];
+  if (!paths.length) return;
+  const { error } = await supabaseClient.storage.from('music-files').remove(paths);
+  if (error) console.warn('removeUploadedPodcastAssets:', error);
+}
+
+function podcastErrorMessage(error, fallback = 'Não foi possível concluir o salvamento.') {
+  const message = error?.message || error?.error_description || '';
+  if (/row[- ]level security|permission|not authorized|unauthorized/i.test(message)) {
+    return 'Sem permissão para salvar este podcast. Verifique a sessão de administrador.';
+  }
+  if (/duplicate|already exists/i.test(message)) return 'Este arquivo já foi enviado. Escolha o arquivo novamente.';
+  return message ? `Erro: ${message}` : fallback;
 }
 
 async function loadPodcasts() {
@@ -433,21 +464,43 @@ function openNewPodcastModal() {
   const modal = document.getElementById('genericModal');
   modal.classList.add('active');
   setupModalSave(async () => {
-    const title = document.getElementById('podcastTitle').value.trim();
-    const desc = document.getElementById('podcastDesc').value.trim();
-    const audioFile = document.getElementById('podcastAudio').files[0];
-    const coverFile = document.getElementById('podcastCoverFile').files[0];
-    let coverUrl = document.getElementById('podcastCover').value.trim();
-    if (!title || !audioFile) { showToast('Preencha título e arquivo de áudio', 'error'); return; }
-    const audioUrl = await uploadPodcastAsset(audioFile, `podcasts/audio/${Date.now()}`);
-    if (!audioUrl) { showToast('Falha no upload do áudio', 'error'); return; }
-    if (coverFile) {
-      coverUrl = await uploadPodcastAsset(coverFile, `podcasts/covers/${Date.now()}`);
-      if (!coverUrl) { showToast('Falha no upload da capa', 'error'); return; }
+    const uploadedUrls = [];
+    try {
+      const title = document.getElementById('podcastTitle').value.trim();
+      const desc = document.getElementById('podcastDesc').value.trim();
+      const audioFile = document.getElementById('podcastAudio').files[0];
+      const coverFile = document.getElementById('podcastCoverFile').files[0];
+      let coverUrl = document.getElementById('podcastCover').value.trim();
+      if (!title || !audioFile) { showToast('Preencha título e arquivo de áudio', 'error'); return; }
+      const validation = validatePodcastAudio(audioFile);
+      if (validation) { showToast(validation, 'error'); return; }
+
+      const audioUrl = await uploadPodcastAsset(audioFile, `podcasts/audio/${Date.now()}`);
+      if (!audioUrl) throw new Error('Falha no upload do áudio. Tente novamente.');
+      uploadedUrls.push(audioUrl);
+
+      if (coverFile) {
+        coverUrl = await uploadPodcastAsset(coverFile, `podcasts/covers/${Date.now()}`);
+        if (!coverUrl) throw new Error('Falha no upload da capa.');
+        uploadedUrls.push(coverUrl);
+      }
+
+      const { error } = await supabaseClient.from('podcasts').insert([{
+        title,
+        description: desc || null,
+        audio_url: audioUrl,
+        cover_url: coverUrl || null,
+      }]);
+      if (error) throw error;
+
+      showToast('Podcast adicionado!');
+      loadPodcasts();
+      modal.classList.remove('active');
+    } catch (error) {
+      console.error('savePodcast:', error);
+      await removeUploadedPodcastAssets(uploadedUrls);
+      showToast(podcastErrorMessage(error, 'Não foi possível salvar o podcast.'), 'error');
     }
-    const { error } = await supabaseClient.from('podcasts').insert([{ title, description: desc || null, audio_url: audioUrl, cover_url: coverUrl || null }]);
-    if (error) showToast("Erro ao salvar podcast", "error");
-    else { showToast("Podcast adicionado!"); loadPodcasts(); modal.classList.remove('active'); }
   });
 }
 
@@ -463,23 +516,44 @@ function openEditPodcastModal(data) {
   const modal = document.getElementById('genericModal');
   modal.classList.add('active');
   setupModalSave(async () => {
-    const title = document.getElementById('podcastTitle').value.trim();
-    const desc = document.getElementById('podcastDesc').value.trim();
-    const audioFile = document.getElementById('podcastAudio').files[0];
-    const coverFile = document.getElementById('podcastCoverFile').files[0];
-    let coverUrl = document.getElementById('podcastCover').value.trim();
-    let audioUrl = data.audio;
-    if (audioFile) {
-      audioUrl = await uploadPodcastAsset(audioFile, `podcasts/audio/${Date.now()}`);
-      if (!audioUrl) { showToast('Falha no upload do áudio', 'error'); return; }
+    const uploadedUrls = [];
+    try {
+      const title = document.getElementById('podcastTitle').value.trim();
+      const desc = document.getElementById('podcastDesc').value.trim();
+      const audioFile = document.getElementById('podcastAudio').files[0];
+      const coverFile = document.getElementById('podcastCoverFile').files[0];
+      let coverUrl = document.getElementById('podcastCover').value.trim();
+      let audioUrl = data.audio;
+      if (!title) { showToast('Título é obrigatório', 'error'); return; }
+      if (audioFile) {
+        const validation = validatePodcastAudio(audioFile);
+        if (validation) { showToast(validation, 'error'); return; }
+        audioUrl = await uploadPodcastAsset(audioFile, `podcasts/audio/${Date.now()}`);
+        if (!audioUrl) throw new Error('Falha no upload do áudio. Tente novamente.');
+        uploadedUrls.push(audioUrl);
+      }
+      if (coverFile) {
+        coverUrl = await uploadPodcastAsset(coverFile, `podcasts/covers/${Date.now()}`);
+        if (!coverUrl) throw new Error('Falha no upload da capa.');
+        uploadedUrls.push(coverUrl);
+      }
+
+      const { error } = await supabaseClient.from('podcasts').update({
+        title,
+        description: desc || null,
+        audio_url: audioUrl,
+        cover_url: coverUrl || null,
+      }).eq('id', data.id);
+      if (error) throw error;
+
+      showToast('Podcast atualizado!');
+      loadPodcasts();
+      modal.classList.remove('active');
+    } catch (error) {
+      console.error('updatePodcast:', error);
+      await removeUploadedPodcastAssets(uploadedUrls);
+      showToast(podcastErrorMessage(error, 'Não foi possível atualizar o podcast.'), 'error');
     }
-    if (coverFile) {
-      coverUrl = await uploadPodcastAsset(coverFile, `podcasts/covers/${Date.now()}`);
-      if (!coverUrl) { showToast('Falha no upload da capa', 'error'); return; }
-    }
-    const { error } = await supabaseClient.from('podcasts').update({ title, description: desc || null, audio_url: audioUrl, cover_url: coverUrl || null }).eq('id', data.id);
-    if (error) showToast("Erro ao atualizar", "error");
-    else { showToast("Podcast atualizado!"); loadPodcasts(); modal.classList.remove('active'); }
   });
 }
 
@@ -499,7 +573,28 @@ function setupModalSave(onSave) {
   confirmBtn.parentNode.replaceChild(oldConfirm, confirmBtn);
   cancelBtn.parentNode.replaceChild(oldCancel, cancelBtn);
   oldCancel.addEventListener('click', () => document.getElementById('genericModal').classList.remove('active'));
-  oldConfirm.addEventListener('click', onSave);
+
+  let saving = false;
+  const originalLabel = oldConfirm.innerHTML;
+  oldConfirm.addEventListener('click', async (event) => {
+    event.preventDefault();
+    if (saving) return;
+    saving = true;
+    oldConfirm.disabled = true;
+    oldConfirm.setAttribute('aria-busy', 'true');
+    oldConfirm.innerHTML = '<span class="material-symbols-rounded">progress_activity</span> Salvando...';
+    try {
+      await onSave();
+    } catch (error) {
+      console.error('modalSave:', error);
+      showToast(podcastErrorMessage(error, 'Não foi possível concluir a operação.'), 'error');
+    } finally {
+      saving = false;
+      oldConfirm.disabled = false;
+      oldConfirm.removeAttribute('aria-busy');
+      oldConfirm.innerHTML = originalLabel;
+    }
+  });
 }
 
 // ========== INICIALIZAÇÃO ==========
