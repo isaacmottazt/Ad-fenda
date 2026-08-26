@@ -519,6 +519,55 @@
     .empty-state h3 { font-size: 15px; color: #fff; margin-bottom: 4px; }
     .empty-state p { font-size: 13px; }
 
+    /* ── PRIVACIDADE ───────────────────────────────────────── */
+    .privacy-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 680px) { .privacy-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .privacy-stat {
+      background: linear-gradient(145deg, rgba(146,76,255,.16), rgba(255,255,255,.035));
+      border: 1px solid var(--border-purple);
+      border-radius: 16px;
+      padding: 13px;
+      min-width: 0;
+    }
+    .privacy-stat strong { display:block; font-size: 22px; line-height: 1; margin-bottom: 6px; }
+    .privacy-stat span { display:block; font-size: 10px; line-height: 1.25; color: var(--text-secondary); font-weight: 700; }
+    .privacy-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:14px; }
+    .privacy-toolbar input {
+      flex:1; min-width:0; background:rgba(255,255,255,.05); color:#fff;
+      border:1px solid var(--border-color); border-radius:14px; padding:11px 13px;
+      font:inherit; font-size:13px; outline:none;
+    }
+    .privacy-toolbar input:focus { border-color:var(--border-purple); }
+    .privacy-record {
+      background: var(--bg-card); border:1px solid var(--border-color); border-radius:18px;
+      padding:15px 16px; margin-bottom:10px;
+    }
+    .privacy-record-head { display:flex; align-items:flex-start; gap:12px; }
+    .privacy-record-main { flex:1; min-width:0; }
+    .privacy-record-main strong { display:block; font-size:14px; overflow-wrap:anywhere; }
+    .privacy-record-main small { display:block; color:var(--text-secondary); font-size:11px; margin-top:3px; overflow-wrap:anywhere; }
+    .privacy-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
+    .privacy-chip {
+      display:inline-flex; align-items:center; gap:4px; border-radius:30px; padding:4px 8px;
+      font-size:10px; font-weight:800; color:var(--text-secondary); background:rgba(255,255,255,.06);
+      border:1px solid var(--border-color);
+    }
+    .privacy-chip.on { color:var(--ok); border-color:rgba(74,222,128,.28); background:rgba(74,222,128,.09); }
+    .privacy-chip.location.on { color:#fbbf24; border-color:rgba(251,191,36,.3); background:rgba(251,191,36,.1); }
+    .privacy-detail {
+      margin-top:12px; padding:12px; border-radius:13px; background:rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.07); font-size:12px; color:var(--text-secondary); line-height:1.55;
+    }
+    .privacy-detail strong { color:#fff; }
+    .privacy-detail code { color:#fbbf24; font-size:11px; overflow-wrap:anywhere; }
+    .privacy-note { font-size:11px; color:var(--text-faint); line-height:1.5; margin:0 0 14px; }
+    .privacy-loading { color:var(--text-secondary); text-align:center; padding:30px 16px; font-size:13px; }
+
     .toast {
       position: fixed;
       bottom: calc(var(--nav-h) + 16px);
@@ -603,6 +652,26 @@
     <div id="usersList" class="card-grid"></div>
   </div>
 
+  <!-- PRIVACIDADE E DADOS -->
+  <div id="privacyTab" class="tab-pane">
+    <div class="section-header">
+      <h2><span class="material-symbols-rounded">privacy_tip</span>Privacidade e dados</h2>
+      <button id="refreshPrivacyBtn" class="btn-secondary"><span class="material-symbols-rounded">refresh</span>Atualizar</button>
+    </div>
+    <p class="section-sub">Visualização restrita a administradores dos dados que os usuários autorizaram. Localização precisa só aparece ao abrir os detalhes de um registro.</p>
+    <div class="privacy-summary-grid">
+      <div class="privacy-stat"><strong id="privacyUserCount">0</strong><span>usuários com preferências</span></div>
+      <div class="privacy-stat"><strong id="privacyLocationCount">0</strong><span>autorizaram localização</span></div>
+      <div class="privacy-stat"><strong id="privacyAnalyticsCount">0</strong><span>autorizaram análise de uso</span></div>
+      <div class="privacy-stat"><strong id="privacyRecommendationCount">0</strong><span>autorizaram recomendações</span></div>
+    </div>
+    <p class="privacy-note">A lista não exibe IP: o Fenda não grava IP no perfil do usuário. Dados precisos ficam protegidos por RLS e são mostrados somente após uma ação explícita do administrador.</p>
+    <div class="privacy-toolbar">
+      <input id="privacySearchInput" type="search" placeholder="Buscar por nome, e-mail ou ID" autocomplete="off">
+    </div>
+    <div id="privacyList"><div class="privacy-loading">Carregando dados de privacidade…</div></div>
+  </div>
+
   <!-- MÚSICAS -->
   <div id="musicsTab" class="tab-pane">
     <div class="section-header">
@@ -667,6 +736,10 @@
     <span class="material-symbols-rounded">group</span>
     <span class="tab-label">Usuários</span>
   </button>
+  <button class="admin-tab" data-tab="privacy">
+    <span class="material-symbols-rounded">privacy_tip</span>
+    <span class="tab-label">Privacidade</span>
+  </button>
   <button class="admin-tab" data-tab="musics">
     <span class="material-symbols-rounded">music_note</span>
     <span class="tab-label">Músicas</span>
@@ -702,8 +775,8 @@
 <script src="supabase-config.js"></script>
   <!-- Versões explícitas evitam que o navegador mantenha uma ficha antiga em cache. -->
   <script src="music-analyzer.js?v=20260826-5"></script>
-  <script src="admin.js?v=20260826-5"></script>
-  <script src="admin-music-upload.js?v=20260826-5"></script>
-  <script src="admin-messages.js?v=20260826-5"></script>
+  <script src="admin.js?v=20260826-6"></script>
+  <script src="admin-music-upload.js?v=20260826-6"></script>
+  <script src="admin-messages.js?v=20260826-6"></script>
 </body>
 </html>

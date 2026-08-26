@@ -38,8 +38,8 @@ function showToast(msg, type = 'success') {
 }
 
 function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/[&<>]/g, function(m) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>]/g, function(m) {
     if (m === '&') return '&amp;';
     if (m === '<') return '&lt;';
     if (m === '>') return '&gt;';
@@ -132,6 +132,128 @@ async function loadUsers() {
   document.querySelectorAll('.delete-user').forEach(btn => {
     btn.addEventListener('click', () => deleteUser(btn.dataset.id, btn.dataset.name));
   });
+}
+
+let adminPrivacyRows = [];
+
+function _privacyDomId(userId) {
+  return `privacyDetail_${String(userId || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+}
+
+function _privacyDate(value) {
+  if (!value) return 'não informado';
+  try { return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)); }
+  catch { return escapeHtml(value); }
+}
+
+function _privacyChip(label, enabled, extraClass = '') {
+  return `<span class="privacy-chip ${enabled ? `on ${extraClass}` : ''}">${enabled ? 'Ativo' : 'Desativado'} · ${label}</span>`;
+}
+
+function renderPrivacyRows() {
+  const container = document.getElementById('privacyList');
+  if (!container) return;
+  const query = String(document.getElementById('privacySearchInput')?.value || '').trim().toLowerCase();
+  const rows = adminPrivacyRows.filter(row => {
+    if (!query) return true;
+    const haystack = [row.user_id, row.profile?.full_name, row.profile?.email].map(value => String(value || '').toLowerCase()).join(' ');
+    return haystack.includes(query);
+  });
+
+  if (!rows.length) {
+    container.innerHTML = `<div class="empty-state"><span class="material-symbols-rounded">privacy_tip</span><h3>Nenhum registro encontrado</h3><p>Os usuários só aparecem aqui depois de autorizarem alguma finalidade.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = rows.map(row => {
+    const id = escapeHtml(row.user_id);
+    const domId = _privacyDomId(row.user_id);
+    const name = escapeHtml(row.profile?.full_name || 'Usuário sem nome');
+    const email = escapeHtml(row.profile?.email || 'E-mail não disponível');
+    const deviceSummary = row.device_data_consent
+      ? `${escapeHtml(row.device_platform || 'plataforma não informada')} · ${escapeHtml(row.device_language || 'idioma não informado')} · ${escapeHtml(row.device_timezone || 'fuso não informado')}`
+      : 'não autorizado';
+    const locationAction = row.location_consent
+      ? `<button class="btn-icon privacy-detail-btn" data-user-id="${id}" aria-expanded="false"><span class="material-symbols-rounded">location_on</span> Ver localização</button>`
+      : '';
+    const deviceAction = row.device_data_consent
+      ? `<button class="btn-icon privacy-device-btn" data-user-id="${id}" aria-expanded="false"><span class="material-symbols-rounded">devices</span> Ver dados técnicos</button>`
+      : '';
+    return `<article class="privacy-record">
+      <div class="privacy-record-head">
+        <span class="msg-card-icon"><span class="material-symbols-rounded">person</span></span>
+        <div class="privacy-record-main"><strong>${name}</strong><small>${email}</small><small>ID: <code>${id}</code></small></div>
+        <small style="color:var(--text-faint); white-space:nowrap;">${_privacyDate(row.updated_at || row.consented_at || row.revoked_at)}</small>
+      </div>
+      <div class="privacy-chips">
+        ${_privacyChip('análise de uso', row.analytics_consent)}
+        ${_privacyChip('recomendações', row.recommendations_consent)}
+        ${_privacyChip('localização', row.location_consent, 'location')}
+        ${_privacyChip('dados técnicos', row.device_data_consent)}
+      </div>
+      <div style="margin-top:10px; font-size:11px; color:var(--text-secondary);">Dispositivo autorizado: ${deviceSummary}</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:11px;">${locationAction}${deviceAction}</div>
+      <div class="privacy-detail" id="${domId}" hidden></div>
+    </article>`;
+  }).join('');
+
+  container.querySelectorAll('.privacy-detail-btn').forEach(button => {
+    button.addEventListener('click', () => togglePrivacyDetail(button, 'location'));
+  });
+  container.querySelectorAll('.privacy-device-btn').forEach(button => {
+    button.addEventListener('click', () => togglePrivacyDetail(button, 'device'));
+  });
+}
+
+function togglePrivacyDetail(button, kind) {
+  const row = adminPrivacyRows.find(item => String(item.user_id) === String(button.dataset.userId));
+  const detail = document.getElementById(_privacyDomId(button.dataset.userId));
+  if (!row || !detail) return;
+  const willOpen = detail.hidden;
+  detail.hidden = !willOpen;
+  button.setAttribute('aria-expanded', String(willOpen));
+  if (!willOpen) return;
+
+  if (kind === 'location') {
+    const latitude = Number(row.location_latitude);
+    const longitude = Number(row.location_longitude);
+    if (!row.location_consent || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      detail.innerHTML = '<strong>Localização</strong><br>O usuário autorizou a finalidade, mas não há coordenadas válidas armazenadas.';
+      return;
+    }
+    detail.innerHTML = `<strong>Localização precisa autorizada</strong><br>Latitude: <code>${latitude.toFixed(6)}</code><br>Longitude: <code>${longitude.toFixed(6)}</code><br>Precisão informada: <strong>${Number.isFinite(Number(row.location_accuracy_m)) ? `${Number(row.location_accuracy_m).toFixed(2)} m` : 'não informada'}</strong><br>Capturada em: ${_privacyDate(row.location_captured_at)}<br>Fonte: ${escapeHtml(row.location_source || 'navegador')}`;
+  } else {
+    detail.innerHTML = `<strong>Dados técnicos autorizados</strong><br>Plataforma: ${escapeHtml(row.device_platform || 'não informada')}<br>Idioma: ${escapeHtml(row.device_language || 'não informado')}<br>Fuso horário: ${escapeHtml(row.device_timezone || 'não informado')}`;
+  }
+}
+
+async function loadPrivacyData() {
+  const container = document.getElementById('privacyList');
+  if (!container) return;
+  container.innerHTML = '<div class="privacy-loading">Carregando dados de privacidade…</div>';
+  const { data, error } = await supabaseClient
+    .from('user_privacy_settings')
+    .select('user_id, analytics_consent, recommendations_consent, location_consent, device_data_consent, location_latitude, location_longitude, location_accuracy_m, location_captured_at, location_source, device_timezone, device_language, device_platform, consent_version, consented_at, revoked_at, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(1000);
+  if (error) {
+    adminPrivacyRows = [];
+    container.innerHTML = `<div class="empty-state"><span class="material-symbols-rounded">lock</span><h3>Dados indisponíveis</h3><p>${escapeHtml(error.message || 'Não foi possível consultar a tabela de privacidade.')}</p></div>`;
+    return;
+  }
+
+  const ids = [...new Set((data || []).map(row => row.user_id).filter(Boolean))];
+  const profiles = ids.length ? await supabaseClient.from('profiles').select('id, full_name, email').in('id', ids).limit(1000) : { data: [], error: null };
+  const profilesById = Object.fromEntries((profiles.data || []).map(profile => [String(profile.id), profile]));
+  adminPrivacyRows = (data || []).map(row => ({ ...row, profile: profilesById[String(row.user_id)] || null }));
+
+  const total = adminPrivacyRows.length;
+  const count = key => adminPrivacyRows.filter(row => row[key] === true).length;
+  document.getElementById('privacyUserCount').textContent = String(total);
+  document.getElementById('privacyLocationCount').textContent = String(count('location_consent'));
+  document.getElementById('privacyAnalyticsCount').textContent = String(count('analytics_consent'));
+  document.getElementById('privacyRecommendationCount').textContent = String(count('recommendations_consent'));
+  renderPrivacyRows();
 }
 
 async function deleteUser(userId, userName) {
@@ -808,6 +930,7 @@ async function initAdmin() {
     // a aba começava vazia até você enviar algo
     (typeof loadMessages === 'function' ? loadMessages() : Promise.resolve()),
     (typeof loadSubmissions === 'function' ? loadSubmissions() : Promise.resolve()),
+    loadPrivacyData(),
   ]);
 
   const tabs = document.querySelectorAll('.admin-tab');
@@ -819,7 +942,7 @@ async function initAdmin() {
   }
 
   const TAB_TITLES = {
-    users: 'Usuários', musics: 'Músicas', artists: 'Artistas',
+    users: 'Usuários', privacy: 'Privacidade', musics: 'Músicas', artists: 'Artistas',
     messages: 'Mensagens', podcasts: 'Podcasts',
   };
   function switchTab(tabId) {
@@ -859,6 +982,11 @@ async function initAdmin() {
   if (newArtistBtn) newArtistBtn.addEventListener('click', openNewArtistModal);
   if (newPodcastBtn) newPodcastBtn.addEventListener('click', openNewPodcastModal);
   if (newMessageBtn) newMessageBtn.addEventListener('click', openNewMessageModal);
+
+  const refreshPrivacyBtn = document.getElementById('refreshPrivacyBtn');
+  if (refreshPrivacyBtn) refreshPrivacyBtn.addEventListener('click', () => loadPrivacyData());
+  const privacySearchInput = document.getElementById('privacySearchInput');
+  if (privacySearchInput) privacySearchInput.addEventListener('input', renderPrivacyRows);
   
   const logoutBtn = document.getElementById('adminLogoutBtn');
   if (logoutBtn) {
