@@ -189,14 +189,10 @@ function openEditMusicModal(data) {
     <div class="form-group"><label>URL da capa</label><input type="text" id="musicCoverUrl" value="${data.cover || ''}"></div>
     <div class="form-group"><label>Letra sincronizada (.lrc)</label><input type="text" id="musicLrc" value="${data.lrc || ''}" placeholder="URL do arquivo .lrc"></div>
     <div class="form-group"><label>Gênero</label>
-      <select id="musicGenre">
-        <option value="">Selecione um gênero</option>
-        <option value="Gospel" ${data.genre === 'Gospel' ? 'selected' : ''}>Gospel</option>
-        <option value="Adoração" ${data.genre === 'Adoração' ? 'selected' : ''}>Adoração</option>
-        <option value="MPB" ${data.genre === 'MPB' ? 'selected' : ''}>MPB</option>
-        <option value="Rock" ${data.genre === 'Rock' ? 'selected' : ''}>Rock</option>
-        <option value="Pop" ${data.genre === 'Pop' ? 'selected' : ''}>Pop</option>
-      </select>
+      <input type="text" id="musicGenre" list="adminGenreOptions" value="${escapeHtml(data.genre || '')}" placeholder="Digite o gênero: Gospel, MPB, sertanejo…">
+      <datalist id="adminGenreOptions">
+        ${['Gospel','Adoração','Louvores','Contemporâneo','Rock Cristão','MPB','Pop','Rock','Sertanejo','Pagode','Samba','Funk','Forró','Eletrônica','Jazz','Clássico','Reggae','Hip-Hop','Trap','R&B'].map(g => `<option value="${g}">`).join('')}
+      </datalist>
       <div style="display:flex; gap:8px; margin-top:8px;">
         <button type="button" id="searchGenreOnlineBtn" class="btn-icon" style="flex:1; justify-content:center;">Pesquisar gênero</button>
       </div>
@@ -264,10 +260,9 @@ function openEditMusicModal(data) {
       }
       genreSearchResults.innerHTML = `<div style="font-size:11px; color:rgba(255,255,255,.7); margin-bottom:6px;">Gênero encontrado${result.source ? ` (${escapeHtml(result.source)})` : ''} para ${escapeHtml(result.match?.title || title)} · ${escapeHtml(result.match?.artist || artist)}:</div><div style="display:flex; gap:6px; flex-wrap:wrap;">${genres.map(genreName => `<button type="button" class="btn-icon genre-suggestion" data-genre="${escapeHtml(genreName)}">${escapeHtml(genreName)}</button>`).join('')}<a class="btn-icon" href="${result.searchUrl}" target="_blank" rel="noopener">Abrir pesquisa</a></div>`;
       genreSearchResults.querySelectorAll('.genre-suggestion').forEach(button => button.addEventListener('click', () => {
-        const select = document.getElementById('musicGenre');
-        if (![...select.options].some(option => option.value === button.dataset.genre)) select.add(new Option(button.dataset.genre, button.dataset.genre));
-        select.value = button.dataset.genre;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
+        const input = document.getElementById('musicGenre');
+        input.value = button.dataset.genre;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
         showToast('Gênero aplicado ao formulário', 'success');
       }));
     } catch (error) {

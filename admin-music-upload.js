@@ -368,11 +368,10 @@ function openNewMusicModal() {
         <div class="track-row-2">
           <div class="form-group">
             <label>Gênero principal</label>
-            <select class="tr-genre">
-              <option value="">Sem gênero</option>
-              ${['Gospel','Adoração','Louvores','Contemporâneo','Rock Cristão','MPB','Pop','Rock']
-                .map(g => `<option value="${g}" ${item.genre === g ? 'selected' : ''}>${g}</option>`).join('')}
-            </select>
+            <input type="text" class="tr-genre" list="uploadGenreOptions" value="${escapeHtml(item.genre || '')}" placeholder="Digite o gênero: Gospel, MPB, sertanejo…">
+            <datalist id="uploadGenreOptions">
+              ${['Gospel','Adoração','Louvores','Contemporâneo','Rock Cristão','MPB','Pop','Rock','Sertanejo','Pagode','Samba','Funk','Forró','Eletrônica','Jazz','Clássico','Reggae','Hip-Hop','Trap','R&B'].map(g => `<option value="${g}">`).join('')}
+            </datalist>
             <button type="button" class="btn-icon tr-search-genre" style="width:100%; justify-content:center; margin-top:8px;">Pesquisar gênero</button>
             <div class="tr-genre-results" style="margin-top:8px;"></div>
           </div>
@@ -438,7 +437,8 @@ function openNewMusicModal() {
           item.artist = r.name; artistInput.value = r.name;
         });
       }, 350));
-      card.querySelector('.tr-genre').addEventListener('change', e => { item.genre = e.target.value; });
+      card.querySelector('.tr-genre').addEventListener('input', e => { item.genre = e.target.value.trim(); });
+      card.querySelector('.tr-genre').addEventListener('change', e => { item.genre = e.target.value.trim(); });
       card.querySelector('.tr-search-genre').addEventListener('click', async e => {
         const button = e.currentTarget;
         const resultsBox = card.querySelector('.tr-genre-results');
@@ -459,9 +459,8 @@ function openNewMusicModal() {
           resultsBox.innerHTML = `<div style="font-size:11px; color:rgba(255,255,255,.7); margin-bottom:6px;">Gênero encontrado${result.source ? ` (${escapeHtml(result.source)})` : ''}:</div><div style="display:flex; gap:6px; flex-wrap:wrap;">${genres.map(genreName => `<button type="button" class="btn-icon tr-genre-suggestion" data-genre="${escapeHtml(genreName)}">${escapeHtml(genreName)}</button>`).join('')}<a class="btn-icon" href="${result.searchUrl}" target="_blank" rel="noopener">Abrir pesquisa</a></div>`;
           resultsBox.querySelectorAll('.tr-genre-suggestion').forEach(suggestion => suggestion.addEventListener('click', () => {
             item.genre = suggestion.dataset.genre;
-            const select = card.querySelector('.tr-genre');
-            if (![...select.options].some(option => option.value === item.genre)) select.add(new Option(item.genre, item.genre));
-            select.value = item.genre;
+            const genreInput = card.querySelector('.tr-genre');
+            genreInput.value = item.genre;
             showToast('Gênero aplicado à faixa', 'success');
           }));
         } catch (error) {
