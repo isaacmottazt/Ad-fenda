@@ -15,6 +15,76 @@
 
   const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
   const round = (value, digits = 2) => Number(Number(value || 0).toFixed(digits));
+  const OPEN_MODEL_ID = 'onnx-community/Musical-genres-Classification-Hubert-V1-ONNX';
+  const OPEN_MODEL_MODULE = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm';
+  let openModelPromise = null;
+
+  const OPEN_LABEL_MAP = {
+    blues: 'Blues', classical: 'Clássico', country: 'Sertanejo', disco: 'Dance',
+    'hip-hop': 'Hip-Hop', hiphop: 'Hip-Hop', jazz: 'Jazz', metal: 'Rock',
+    pop: 'Pop', reggae: 'Reggae', rock: 'Rock', electronic: 'Eletrônica',
+    dance: 'Dance', folk: 'Acústico', gospel: 'Gospel', worship: 'Adoração',
+  };
+
+  function resampleAudio(samples, sourceRate, targetRate = 16000) {
+    if (sourceRate === targetRate) return samples;
+    const length = Math.max(1, Math.round(samples.length * targetRate / sourceRate));
+    const output = new Float32Array(length);
+    const ratio = sourceRate / targetRate;
+    for (let i = 0; i < length; i++) {
+      const position = i * ratio;
+      const left = Math.floor(position);
+      const right = Math.min(samples.length - 1, left + 1);
+      const fraction = position - left;
+      output[i] = (samples[left] || 0) * (1 - fraction) + (samples[right] || 0) * fraction;
+    }
+    return output;
+  }
+
+  async function loadOpenGenreModel(onProgress) {
+    if (!openModelPromise) {
+      openModelPromise = (async () => {
+        const { pipeline, env } = await import(OPEN_MODEL_MODULE);
+        env.allowLocalModels = false;
+        env.useBrowserCache = true;
+        return pipeline('audio-classification', OPEN_MODEL_ID, {
+          dtype: 'q8',
+          progress_callback: onProgress,
+        });
+      })().catch(error => {
+        openModelPromise = null;
+        throw error;
+      });
+    }
+    return openModelPromise;
+  }
+
+  async function classifyWithOpenModel(samples, sampleRate, metadata = {}) {
+    if (metadata.useOpenModel === false) return null;
+    const model = await loadOpenGenreModel(metadata.onModelProgress);
+    const maxModelSamples = Math.min(samples.length, Math.floor(sampleRate * 30));
+    const audio = resampleAudio(samples.slice(0, maxModelSamples), sampleRate, 16000);
+    const predictions = await model(audio);
+    const items = (Array.isArray(predictions) ? predictions : [])
+      .map(item => {
+        const raw = String(item.label || '').trim();
+        const normalized = normalizeText(raw).replace(/\s+/g, '-');
+        return {
+          label: OPEN_LABEL_MAP[normalized] || raw,
+          score: Number(item.score || 0),
+          raw,
+        };
+      })
+      .filter(item => item.label && !/^label[_ -]?\d+$/i.test(item.label))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    return {
+      model: OPEN_MODEL_ID,
+      predictions: items,
+      styleTags: items.filter(item => item.score >= 0.08).map(item => item.label),
+      confidence: items[0]?.score || 0,
+    };
+  }
 
   function normalizeAudioSamples(buffer, maxSeconds = 180) {
     const sourceRate = buffer.sampleRate;
@@ -190,17 +260,33 @@
       const tempo = estimateTempo(envelope);
       const features = calculateFeatures(mono, sampleRate, envelope, tempo);
       const suggestion = suggestStyles(features, metadata);
-      const styleTags = suggestion.styleTags;
-      const confidence = clamp(0.3 + features.periodicity * 0.3 + (features.bpm ? 0.18 : 0) + (metadata.genre ? 0.08 : 0) + (suggestion.contextEvidence.length ? 0.12 : 0));
+      let openModel = null;
+      let openModelError = null;
+      try {
+        openModel = await classifyWithOpenModel(mono, sampleRate, metadata);
+      } catch (error) {
+        openModelError = error.message || 'Modelo aberto indisponível';
+        console.warn('[FendaMusicAnalyzer] modelo aberto indisponível; usando fallback local', error);
+      }
+      const styleTags = [...new Set([
+        ...suggestion.styleTags,
+        ...(openModel?.styleTags || []),
+      ])].slice(0, 5);
+      const modelConfidence = openModel?.confidence || 0;
+      const confidence = clamp(0.26 + features.periodicity * 0.28 + (features.bpm ? 0.16 : 0) + (metadata.genre ? 0.08 : 0) + (suggestion.contextEvidence.length ? 0.1 : 0) + modelConfidence * 0.12);
       return {
         duration: round(duration, 1),
         ...features,
         style: styleTags[0] || 'Contemporâneo',
         styleTags,
         contextEvidence: suggestion.contextEvidence,
+        modelPredictions: openModel?.predictions || [],
+        modelUsed: Boolean(openModel),
+        modelId: openModel?.model || null,
+        modelError: openModelError,
         confidence: round(confidence, 4),
-        source: 'browser-acoustic-v1',
-        version: '1.0.0',
+        source: openModel ? 'browser-acoustic-v1+open-onnx-v1' : 'browser-acoustic-v1',
+        version: openModel ? '1.1.0' : '1.0.0',
         analyzedAt: new Date().toISOString(),
       };
     } finally {

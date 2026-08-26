@@ -250,6 +250,10 @@ function openEditMusicModal(data) {
         title: document.getElementById('musicTitle').value.trim(),
         artist: document.getElementById('musicArtist').value.trim(),
         genre: document.getElementById('musicGenre').value || data.genre || '',
+        useOpenModel: true,
+        onModelProgress: progress => {
+          if (progress?.progress != null) analysisStatus.textContent = `Carregando IA aberta: ${Math.round(progress.progress)}%…`;
+        },
       });
       applyEditAnalysis(analysis);
       showToast('Análise concluída!', 'success');

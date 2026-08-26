@@ -273,6 +273,10 @@ function openNewMusicModal() {
             title: item.title,
             artist: item.artist,
             genre: item.genre,
+            useOpenModel: true,
+            onModelProgress: progress => {
+              if (progress?.progress != null) zipStatus.textContent = `Carregando IA aberta: ${Math.round(progress.progress)}%…`;
+            },
           });
           item.style = item.style || item.analysis.style;
           item.styleTags = item.analysis.styleTags || item.styleTags;
@@ -408,6 +412,10 @@ function openNewMusicModal() {
             title: item.title,
             artist: item.artist,
             genre: item.genre,
+            useOpenModel: true,
+            onModelProgress: progress => {
+              if (progress?.progress != null) zipStatus.textContent = `Carregando IA aberta: ${Math.round(progress.progress)}%…`;
+            },
           });
           if (!item.style) item.style = item.analysis.style;
           item.styleTags = item.style ? [...new Set([item.style, ...(item.analysis.styleTags || [])])] : item.analysis.styleTags;
