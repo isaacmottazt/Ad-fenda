@@ -85,8 +85,9 @@ async function searchMusic(query, type = 'track') {
       results = d.results.map(it => type === 'artist'
         ? { name: it.artistName, image: null, source: 'iTunes' }
         : { title: it.trackName, artist: it.artistName,
-            image: (it.artworkUrl100 || '').replace('100x100', '600x600') || null,
-            source: 'iTunes' });
+              image: (it.artworkUrl100 || '').replace('100x100', '600x600') || null,
+              genre: it.primaryGenreName || '',
+              source: 'iTunes' });
     }
   } catch (e) {}
   if (results.length < 4) {
@@ -98,6 +99,7 @@ async function searchMusic(query, type = 'track') {
           ? { name: it.name, image: it.picture_medium || null, source: 'Deezer' }
           : { title: it.title, artist: it.artist?.name || '',
               image: it.album?.cover_big || it.album?.cover_medium || null,
+              genre: it.genre?.name || '',
               source: 'Deezer' }));
       }
     } catch (e) {}
@@ -105,6 +107,38 @@ async function searchMusic(query, type = 'track') {
   _searchCache[key] = results.slice(0, 8);
   return _searchCache[key];
 }
+
+async function searchStyleOnline(title, artist, genre = '') {
+  const query = [title, artist].filter(Boolean).join(' ').trim();
+  if (!query) return { genres: [], source: null, match: null, searchUrl: '' };
+  const cacheKey = `style:${query.toLowerCase()}`;
+  if (_searchCache[cacheKey]) return _searchCache[cacheKey];
+  const matches = await searchMusic(query, 'track');
+  const normalizedTitle = String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const normalizedArtist = String(artist || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const ranked = matches.map(item => {
+    const itemTitle = String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const itemArtist = String(item.artist || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const titleHit = normalizedTitle && (itemTitle === normalizedTitle || itemTitle.includes(normalizedTitle) || normalizedTitle.includes(itemTitle));
+    const artistHit = normalizedArtist && (itemArtist === normalizedArtist || itemArtist.includes(normalizedArtist) || normalizedArtist.includes(itemArtist));
+    return { item, score: (titleHit ? 2 : 0) + (artistHit ? 2 : 0) + (item.genre ? 1 : 0) };
+  }).sort((a, b) => b.score - a.score);
+  const best = ranked[0]?.item || null;
+  const genres = [...new Set([
+    genre,
+    ...(best?.genre ? [best.genre] : []),
+  ].map(value => String(value || '').trim()).filter(Boolean))];
+  const result = {
+    genres,
+    source: best?.source || null,
+    match: best,
+    searchUrl: `https://www.google.com/search?q=${encodeURIComponent(`${title} ${artist} gênero estilo música`)}`,
+  };
+  _searchCache[cacheKey] = result;
+  return result;
+}
+
+window.searchStyleOnline = searchStyleOnline;
 
 function _debounce(fn, ms) {
   let t = null;
@@ -342,7 +376,11 @@ function openNewMusicModal() {
           </div>
           <div class="form-group">
             <label>Pesquisar estilo</label>
-            <input type="text" class="tr-style" list="styleOptions" value="${escapeHtml(item.style || '')}" placeholder="Ex.: Soul, Pop, Adoração">
+            <div style="display:flex; gap:8px; align-items:stretch;">
+              <input type="text" class="tr-style" list="styleOptions" value="${escapeHtml(item.style || '')}" placeholder="Ex.: Soul, Pop, Adoração" style="flex:1; min-width:0;">
+              <button type="button" class="btn-icon tr-search-style" style="white-space:nowrap;">Pesquisar</button>
+            </div>
+            <div class="tr-style-results" style="margin-top:8px;"></div>
           </div>
         </div>
         <div class="track-analysis-box" style="margin:8px 0; padding:10px; border:1px solid rgba(192,132,252,.22); border-radius:12px; background:rgba(146,76,255,.07); font-size:11px; color:rgba(255,255,255,.72);">
@@ -398,6 +436,36 @@ function openNewMusicModal() {
         });
       }, 350));
       card.querySelector('.tr-genre').addEventListener('change', e => { item.genre = e.target.value; });
+      card.querySelector('.tr-search-style').addEventListener('click', async e => {
+        const button = e.currentTarget;
+        const resultsBox = card.querySelector('.tr-style-results');
+        if (!item.title || !item.artist) {
+          showToast('Preencha título e artista antes de pesquisar', 'error');
+          return;
+        }
+        button.disabled = true;
+        button.textContent = 'Buscando…';
+        resultsBox.textContent = 'Consultando fontes musicais…';
+        try {
+          const result = await searchStyleOnline(item.title, item.artist, item.genre);
+          const tags = result.genres.length ? result.genres : [result.match?.genre].filter(Boolean);
+          if (!tags.length) {
+            resultsBox.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Nenhum estilo encontrado. <a href="${result.searchUrl}" target="_blank" rel="noopener">Abrir pesquisa</a></span>`;
+            return;
+          }
+          resultsBox.innerHTML = `<div style="font-size:11px; color:rgba(255,255,255,.7); margin-bottom:6px;">Resultado${result.source ? ` (${escapeHtml(result.source)})` : ''}: ${escapeHtml(result.match?.title || item.title)} · ${escapeHtml(result.match?.artist || item.artist)}</div><div style="display:flex; gap:6px; flex-wrap:wrap;">${tags.map(tag => `<button type="button" class="btn-icon tr-style-suggestion" data-style="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`).join('')}<a class="btn-icon" href="${result.searchUrl}" target="_blank" rel="noopener">Abrir pesquisa</a></div>`;
+          resultsBox.querySelectorAll('.tr-style-suggestion').forEach(suggestion => suggestion.addEventListener('click', () => {
+            item.style = suggestion.dataset.style;
+            card.querySelector('.tr-style').value = item.style;
+            showToast('Estilo aplicado à faixa', 'success');
+          }));
+        } catch (error) {
+          resultsBox.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Pesquisa indisponível. <a href="https://www.google.com/search?q=${encodeURIComponent(`${item.title} ${item.artist} gênero estilo música`)}" target="_blank" rel="noopener">Abrir no Google</a></span>`;
+        } finally {
+          button.disabled = false;
+          button.textContent = 'Pesquisar';
+        }
+      });
       card.querySelector('.tr-style').addEventListener('input', e => {
         item.style = e.target.value.trim();
         item.styleTags = item.style ? item.style.split(',').map(s => s.trim()).filter(Boolean) : (item.analysis?.styleTags || []);

@@ -177,6 +177,7 @@ async function loadMusics() {
 
 function openEditMusicModal(data) {
   let editAnalysis = null;
+  let onlineStyleSource = null;
   document.getElementById('modalTitle').innerText = "Editar música";
   document.getElementById('modalBody').innerHTML = `
     <div class="form-group"><label>Título</label><input type="text" id="musicTitle" value="${data.title}"></div>
@@ -211,7 +212,13 @@ function openEditMusicModal(data) {
         ${data.analysisSource ? `Última análise: ${escapeHtml(data.analysisSource)}${data.analysisVersion ? ` · v${escapeHtml(data.analysisVersion)}` : ''}` : 'Analise o áudio salvo ou escolha outro arquivo para preencher os metadados automaticamente.'}
       </div>
     </div>
-    <div class="form-group"><label>Pesquisar estilo</label><input type="text" id="musicStyle" list="adminStyleOptions" value="${data.style || data.styleTags || ''}" placeholder="Ex.: Soul, Pop, Adoração"></div>
+    <div class="form-group"><label>Pesquisar estilo</label>
+      <div style="display:flex; gap:8px; align-items:stretch;">
+        <input type="text" id="musicStyle" list="adminStyleOptions" value="${data.style || data.styleTags || ''}" placeholder="Ex.: Soul, Pop, Adoração" style="flex:1; min-width:0;">
+        <button type="button" id="searchStyleOnlineBtn" class="btn-icon" style="white-space:nowrap;">Pesquisar</button>
+      </div>
+      <div id="styleSearchResults" style="margin-top:8px;"></div>
+    </div>
     <div class="form-group"><label>Ritmo detectado</label><input type="text" id="musicRhythmProfile" value="${data.rhythmProfile || ''}" placeholder="lento, moderado, rápido"></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
       <div class="form-group"><label>BPM</label><input type="number" id="musicTempoBpm" min="30" max="240" step="0.1" value="${data.tempoBpm || ''}"></div>
@@ -227,6 +234,42 @@ function openEditMusicModal(data) {
   const chooseAudioBtn = document.getElementById('chooseEditAudioBtn');
   const audioInput = document.getElementById('editAudioFileInput');
   const analysisStatus = document.getElementById('editAnalysisStatus');
+  const searchStyleBtn = document.getElementById('searchStyleOnlineBtn');
+  const styleSearchResults = document.getElementById('styleSearchResults');
+
+  searchStyleBtn.addEventListener('click', async () => {
+    const title = document.getElementById('musicTitle').value.trim();
+    const artist = document.getElementById('musicArtist').value.trim();
+    const genre = document.getElementById('musicGenre').value || data.genre || '';
+    if (!title || !artist) {
+      showToast('Preencha título e artista antes de pesquisar', 'error');
+      return;
+    }
+    searchStyleBtn.disabled = true;
+    searchStyleBtn.textContent = 'Buscando…';
+    styleSearchResults.textContent = 'Consultando fontes musicais…';
+    try {
+      const result = await window.searchStyleOnline(title, artist, genre);
+      onlineStyleSource = result.source;
+      if (!result.genres.length && !result.match) {
+        styleSearchResults.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Nenhum gênero encontrado. Você pode pesquisar manualmente no Google.</span>`;
+        return;
+      }
+      const tags = result.genres.length ? result.genres : [result.match?.genre].filter(Boolean);
+      styleSearchResults.innerHTML = `<div style="font-size:11px; color:rgba(255,255,255,.7); margin-bottom:6px;">Resultado online${result.source ? ` (${escapeHtml(result.source)})` : ''}: ${escapeHtml(result.match?.title || title)} · ${escapeHtml(result.match?.artist || artist)}</div><div style="display:flex; gap:6px; flex-wrap:wrap;">${tags.map(tag => `<button type="button" class="btn-icon style-suggestion" data-style="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`).join('')}<a class="btn-icon" href="${result.searchUrl}" target="_blank" rel="noopener">Abrir pesquisa</a></div>`;
+      styleSearchResults.querySelectorAll('.style-suggestion').forEach(button => button.addEventListener('click', () => {
+        const input = document.getElementById('musicStyle');
+        input.value = button.dataset.style;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        showToast('Estilo aplicado ao formulário', 'success');
+      }));
+    } catch (error) {
+      styleSearchResults.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Pesquisa indisponível. <a href="https://www.google.com/search?q=${encodeURIComponent(`${title} ${artist} gênero estilo música`)}" target="_blank" rel="noopener">Abrir no Google</a></span>`;
+    } finally {
+      searchStyleBtn.disabled = false;
+      searchStyleBtn.textContent = 'Pesquisar';
+    }
+  });
 
   function applyEditAnalysis(analysis) {
     editAnalysis = analysis;
@@ -355,9 +398,13 @@ function openEditMusicModal(data) {
       const updates = { title, artist, cover: coverUrl, genre, style, style_tags, rhythm_profile, tempo_bpm, energy_score, danceability_score, lrc };
       if (editAnalysis) {
         updates.analysis_confidence = editAnalysis.confidence ?? null;
-        updates.analysis_source = editAnalysis.source || 'browser-acoustic-v1';
+        updates.analysis_source = onlineStyleSource ? `${editAnalysis.source || 'browser-acoustic-v1'}+${onlineStyleSource}` : (editAnalysis.source || 'browser-acoustic-v1');
         updates.analysis_version = editAnalysis.version || '1.0.0';
         updates.analyzed_at = editAnalysis.analyzedAt || new Date().toISOString();
+      } else if (onlineStyleSource) {
+        updates.analysis_source = onlineStyleSource;
+        updates.analysis_version = 'metadata-search-v1';
+        updates.analyzed_at = new Date().toISOString();
       }
       const { error } = await supabaseClient
         .from('musics')
