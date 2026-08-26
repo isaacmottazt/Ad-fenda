@@ -106,20 +106,75 @@
     };
   }
 
-  function suggestStyles(features, metadataGenre = '') {
-    const source = String(metadataGenre || '').trim();
-    const styles = [];
-    if (source) styles.push(source);
+  const CONTEXT_RULES = [
+    { terms: ['adoração', 'adoracao', 'worship', 'louvor', 'louvores', 'hino', 'hinos', 'salmo', 'salmos', 'deus', 'jesus', 'cristo', 'oração', 'oracao', 'espírito', 'espirito'], tags: ['Adoração', 'Gospel'], weight: 5 },
+    { terms: ['acústico', 'acustico', 'acoustic', 'unplugged', 'voz e violão', 'voz e violao'], tags: ['Acústico'], weight: 4 },
+    { terms: ['ao vivo', 'ao-vivo', 'live', 'arena', 'session'], tags: ['Ao Vivo'], weight: 3 },
+    { terms: ['remix', 'club mix', 'extended mix', 'edit'], tags: ['Eletrônica', 'Dance'], weight: 4 },
+    { terms: ['piano', 'violão', 'violao', 'guitarra', 'strings', 'instrumental'], tags: ['Instrumental'], weight: 3 },
+    { terms: ['rap', 'hip hop', 'hip-hop', 'trap', 'mc ', 'freestyle'], tags: ['Hip-Hop', 'Trap'], weight: 5 },
+    { terms: ['funk', 'baile', 'mandelão', 'mandelao'], tags: ['Funk'], weight: 5 },
+    { terms: ['samba', 'pagode', 'partido alto'], tags: ['Samba', 'Pagode'], weight: 5 },
+    { terms: ['sertanejo', 'modão', 'modao', 'sofrência', 'sofrencia'], tags: ['Sertanejo'], weight: 5 },
+    { terms: ['forró', 'forro', 'xote', 'baião', 'baiao'], tags: ['Forró'], weight: 5 },
+    { terms: ['jazz', 'blues', 'soul', 'r&b', 'rnb'], tags: ['Jazz', 'Soul'], weight: 4 },
+    { terms: ['ministério', 'ministerio', 'igreja', 'coral', 'quarteto'], tags: ['Gospel', 'Coral'], weight: 4 },
+    { terms: ['dj ', 'dj-', 'electro', 'techno', 'house', 'beat'], tags: ['Eletrônica', 'Dance'], weight: 4 },
+  ];
+
+  const normalizeText = (value) => String(value || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+  function suggestStyles(features, metadata = {}) {
+    const context = typeof metadata === 'string' ? { genre: metadata } : (metadata || {});
+    const title = String(context.title || '').trim();
+    const artist = String(context.artist || '').trim();
+    const genre = String(context.genre || '').trim();
+    const titleText = normalizeText(title);
+    const artistText = normalizeText(artist);
+    const fullText = normalizeText(`${title} ${artist} ${genre}`);
+    const scores = new Map();
+    const evidence = [];
+    const add = (tag, score, reason) => {
+      if (!tag) return;
+      scores.set(tag, (scores.get(tag) || 0) + score);
+      if (reason && !evidence.includes(reason)) evidence.push(reason);
+    };
+
+    // O gênero informado continua tendo prioridade, mas não domina sozinho a decisão.
+    if (genre) add(genre, 6, `gênero informado: ${genre}`);
+
+    for (const rule of CONTEXT_RULES) {
+      const matchedInTitle = rule.terms.some(term => titleText.includes(normalizeText(term)));
+      const matchedInArtist = rule.terms.some(term => artistText.includes(normalizeText(term)));
+      const matchedInAny = rule.terms.some(term => fullText.includes(normalizeText(term)));
+      if (!matchedInAny) continue;
+      const multiplier = matchedInTitle ? 1.35 : matchedInArtist ? 1.2 : 1;
+      rule.tags.forEach(tag => add(tag, rule.weight * multiplier, matchedInTitle ? `título: ${title}` : matchedInArtist ? `artista: ${artist}` : 'metadados da faixa'));
+    }
+
     const bpm = features.bpm || 0;
     const energy = features.energy;
     const dance = features.danceability;
     const bright = features.brightness;
-    if (energy < 0.35 && bpm < 90) styles.push('Adoração', 'Acústico', 'Ambient');
-    else if (energy > 0.68 && bpm >= 118) styles.push('Pop', dance > 0.62 ? 'Dance' : 'Rock');
-    else if (bpm >= 95 && bpm <= 125 && bright < 0.48) styles.push('MPB', 'Soul');
-    else if (bpm >= 70 && bpm < 105 && energy >= 0.42) styles.push('Contemporâneo', 'R&B');
-    else styles.push('Contemporâneo', dance > 0.55 ? 'Pop' : 'Instrumental');
-    return [...new Set(styles)].filter(Boolean).slice(0, 4);
+    if (energy < 0.35 && bpm < 90) {
+      add('Adoração', 2.5, 'áudio calmo e lento'); add('Acústico', 1.5); add('Ambient', 1.5);
+    } else if (energy > 0.68 && bpm >= 118) {
+      add('Pop', 2.5, 'áudio energético e acelerado'); add(dance > 0.62 ? 'Dance' : 'Rock', 2);
+    } else if (bpm >= 95 && bpm <= 125 && bright < 0.48) {
+      add('MPB', 2, 'faixa moderada com baixa intensidade aguda'); add('Soul', 1.8);
+    } else if (bpm >= 70 && bpm < 105 && energy >= 0.42) {
+      add('Contemporâneo', 2, 'faixa moderada com energia média'); add('R&B', 1.5);
+    } else {
+      add('Contemporâneo', 1.5); add(dance > 0.55 ? 'Pop' : 'Instrumental', 1.2);
+    }
+
+    const styleTags = [...scores.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag]) => tag)
+      .filter(tag => STYLE_CATALOG.includes(tag) || tag === 'Ao Vivo')
+      .slice(0, 5);
+    return { styleTags, contextEvidence: evidence.slice(0, 3) };
   }
 
   async function analyzeAudioFile(file, metadata = {}) {
@@ -134,13 +189,15 @@
       const envelope = extractEnvelope(mono, sampleRate);
       const tempo = estimateTempo(envelope);
       const features = calculateFeatures(mono, sampleRate, envelope, tempo);
-      const styleTags = suggestStyles(features, metadata.genre);
-      const confidence = clamp(0.35 + features.periodicity * 0.35 + (features.bpm ? 0.2 : 0) + (metadata.genre ? 0.1 : 0));
+      const suggestion = suggestStyles(features, metadata);
+      const styleTags = suggestion.styleTags;
+      const confidence = clamp(0.3 + features.periodicity * 0.3 + (features.bpm ? 0.18 : 0) + (metadata.genre ? 0.08 : 0) + (suggestion.contextEvidence.length ? 0.12 : 0));
       return {
         duration: round(duration, 1),
         ...features,
         style: styleTags[0] || 'Contemporâneo',
         styleTags,
+        contextEvidence: suggestion.contextEvidence,
         confidence: round(confidence, 4),
         source: 'browser-acoustic-v1',
         version: '1.0.0',

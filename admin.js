@@ -236,7 +236,8 @@ function openEditMusicModal(data) {
     document.getElementById('musicTempoBpm').value = analysis.bpm || '';
     document.getElementById('musicEnergy').value = analysis.energy ?? '';
     document.getElementById('musicDanceability').value = analysis.danceability ?? '';
-    analysisStatus.innerHTML = `<strong>Análise concluída:</strong> ${analysis.bpm ? `${analysis.bpm} BPM` : 'BPM não detectado'} · energia ${Math.round((analysis.energy || 0) * 100)}% · ritmo ${escapeHtml(analysis.rhythmProfile || 'indefinido')} · confiança ${Math.round((analysis.confidence || 0) * 100)}%<br><small>Estilos sugeridos: ${escapeHtml(styleTags.join(', ') || 'nenhum')}</small>`;
+    const evidence = analysis.contextEvidence?.length ? ` · pistas: ${escapeHtml(analysis.contextEvidence.join(' · '))}` : '';
+    analysisStatus.innerHTML = `<strong>Análise concluída:</strong> ${analysis.bpm ? `${analysis.bpm} BPM` : 'BPM não detectado'} · energia ${Math.round((analysis.energy || 0) * 100)}% · ritmo ${escapeHtml(analysis.rhythmProfile || 'indefinido')} · confiança ${Math.round((analysis.confidence || 0) * 100)}%<br><small>Estilos sugeridos: ${escapeHtml(styleTags.join(', ') || 'nenhum')}${evidence}</small>`;
   }
 
   async function runEditAnalysis(file) {
@@ -246,6 +247,8 @@ function openEditMusicModal(data) {
     analysisStatus.textContent = 'Analisando BPM, energia, ritmo e estilo…';
     try {
       const analysis = await window.FendaMusicAnalyzer.analyzeAudioFile(file, {
+        title: document.getElementById('musicTitle').value.trim(),
+        artist: document.getElementById('musicArtist').value.trim(),
         genre: document.getElementById('musicGenre').value || data.genre || '',
       });
       applyEditAnalysis(analysis);

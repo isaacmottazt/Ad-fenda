@@ -269,7 +269,11 @@ function openNewMusicModal() {
     await Promise.all(newItems.map(async item => {
       try {
         if (window.FendaMusicAnalyzer?.analyzeAudioFile) {
-          item.analysis = await window.FendaMusicAnalyzer.analyzeAudioFile(item.file, { genre: item.genre });
+          item.analysis = await window.FendaMusicAnalyzer.analyzeAudioFile(item.file, {
+            title: item.title,
+            artist: item.artist,
+            genre: item.genre,
+          });
           item.style = item.style || item.analysis.style;
           item.styleTags = item.analysis.styleTags || item.styleTags;
         }
@@ -338,7 +342,7 @@ function openNewMusicModal() {
           </div>
         </div>
         <div class="track-analysis-box" style="margin:8px 0; padding:10px; border:1px solid rgba(192,132,252,.22); border-radius:12px; background:rgba(146,76,255,.07); font-size:11px; color:rgba(255,255,255,.72);">
-          ${item.analysis ? `<strong>Leitura automática:</strong> ${item.analysis.bpm ? `${item.analysis.bpm} BPM` : 'BPM não detectado'} · energia ${Math.round((item.analysis.energy || 0) * 100)}% · ritmo ${escapeHtml(item.analysis.rhythmProfile || 'indefinido')} · confiança ${Math.round((item.analysis.confidence || 0) * 100)}%<br><small>Estilos sugeridos: ${escapeHtml((item.styleTags || []).join(', ') || 'nenhum')}</small>` : `<span>${escapeHtml(item.analysisError || 'Análise pendente')}</span>`}
+          ${item.analysis ? `<strong>Leitura automática:</strong> ${item.analysis.bpm ? `${item.analysis.bpm} BPM` : 'BPM não detectado'} · energia ${Math.round((item.analysis.energy || 0) * 100)}% · ritmo ${escapeHtml(item.analysis.rhythmProfile || 'indefinido')} · confiança ${Math.round((item.analysis.confidence || 0) * 100)}%<br><small>Estilos sugeridos: ${escapeHtml((item.styleTags || []).join(', ') || 'nenhum')}${item.analysis.contextEvidence?.length ? ` · pistas: ${escapeHtml(item.analysis.contextEvidence.join(' · '))}` : ''}</small>` : `<span>${escapeHtml(item.analysisError || 'Análise pendente')}</span>`}
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn-icon tr-analyze-audio">
@@ -400,7 +404,11 @@ function openNewMusicModal() {
         btn.disabled = true;
         btn.innerHTML = '<span class="material-symbols-rounded">hourglass_top</span> Analisando…';
         try {
-          item.analysis = await window.FendaMusicAnalyzer.analyzeAudioFile(item.file, { genre: item.genre });
+          item.analysis = await window.FendaMusicAnalyzer.analyzeAudioFile(item.file, {
+            title: item.title,
+            artist: item.artist,
+            genre: item.genre,
+          });
           if (!item.style) item.style = item.analysis.style;
           item.styleTags = item.style ? [...new Set([item.style, ...(item.analysis.styleTags || [])])] : item.analysis.styleTags;
           renderReviewList();
