@@ -157,7 +157,7 @@ async function loadMusics() {
       <p><strong>Estilo:</strong> ${escapeHtml(music.style || (music.style_tags || []).join(', ') || '—')}</p>
       <p><strong>Ritmo:</strong> ${music.tempo_bpm ? `${music.tempo_bpm} BPM · ${escapeHtml(music.rhythm_profile || 'indefinido')}` : 'não analisado'}</p>
       <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-        <button class="btn-icon edit-music" data-id="${music.id}" data-title="${escapeHtml(music.title)}" data-artist="${escapeHtml(music.artist)}" data-cover="${music.cover || ''}" data-src="${music.src}" data-lrc="${music.lrc || ''}" data-genre="${music.genre || ''}" data-style="${music.style || ''}" data-style-tags="${(music.style_tags || []).join(', ')}" data-tempo-bpm="${music.tempo_bpm || ''}" data-energy="${music.energy_score || ''}" data-danceability="${music.danceability_score || ''}" data-rhythm-profile="${music.rhythm_profile || ''}" data-analysis-confidence="${music.analysis_confidence || ''}">
+        <button class="btn-icon edit-music" data-id="${music.id}" data-title="${escapeHtml(music.title)}" data-artist="${escapeHtml(music.artist)}" data-cover="${music.cover || ''}" data-src="${music.src}" data-lrc="${music.lrc || ''}" data-genre="${music.genre || ''}" data-style="${music.style || ''}" data-style-tags="${(music.style_tags || []).join(', ')}" data-tempo-bpm="${music.tempo_bpm || ''}" data-energy="${music.energy_score || ''}" data-danceability="${music.danceability_score || ''}" data-rhythm-profile="${music.rhythm_profile || ''}" data-analysis-confidence="${music.analysis_confidence || ''}" data-analysis-source="${escapeHtml(music.analysis_source || '')}" data-analysis-version="${escapeHtml(music.analysis_version || '')}" data-analyzed-at="${escapeHtml(music.analyzed_at || '')}">
           <span class="material-symbols-rounded">edit</span> Editar
         </button>
         <button class="btn-icon danger delete-music" data-id="${music.id}" data-title="${escapeHtml(music.title)}">
@@ -176,6 +176,7 @@ async function loadMusics() {
 }
 
 function openEditMusicModal(data) {
+  let editAnalysis = null;
   document.getElementById('modalTitle').innerText = "Editar música";
   document.getElementById('modalBody').innerHTML = `
     <div class="form-group"><label>Título</label><input type="text" id="musicTitle" value="${data.title}"></div>
@@ -196,6 +197,20 @@ function openEditMusicModal(data) {
         <option value="Pop" ${data.genre === 'Pop' ? 'selected' : ''}>Pop</option>
       </select>
     </div>
+    <div style="margin:4px 0 14px; padding:12px 14px; border:1px solid rgba(192,132,252,.25); border-radius:14px; background:rgba(146,76,255,.08);">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" id="analyzeExistingMusicBtn" class="btn-primary" style="flex:1; min-width:210px;">
+          <span class="material-symbols-rounded">auto_awesome</span> Analisar estilo e ritmo
+        </button>
+        <button type="button" id="chooseEditAudioBtn" class="btn-icon" style="flex:1; min-width:170px; justify-content:center;">
+          <span class="material-symbols-rounded">upload_file</span> Escolher áudio
+        </button>
+      </div>
+      <input type="file" id="editAudioFileInput" accept="audio/*" style="display:none;">
+      <div id="editAnalysisStatus" style="margin-top:8px; font-size:11px; color:rgba(255,255,255,.68);">
+        ${data.analysisSource ? `Última análise: ${escapeHtml(data.analysisSource)}${data.analysisVersion ? ` · v${escapeHtml(data.analysisVersion)}` : ''}` : 'Analise o áudio salvo ou escolha outro arquivo para preencher os metadados automaticamente.'}
+      </div>
+    </div>
     <div class="form-group"><label>Pesquisar estilo</label><input type="text" id="musicStyle" list="adminStyleOptions" value="${data.style || data.styleTags || ''}" placeholder="Ex.: Soul, Pop, Adoração"></div>
     <div class="form-group"><label>Ritmo detectado</label><input type="text" id="musicRhythmProfile" value="${data.rhythmProfile || ''}" placeholder="lento, moderado, rápido"></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
@@ -207,6 +222,71 @@ function openEditMusicModal(data) {
   `;
   const modal = document.getElementById('genericModal');
   modal.classList.add('active');
+
+  const analyzeBtn = document.getElementById('analyzeExistingMusicBtn');
+  const chooseAudioBtn = document.getElementById('chooseEditAudioBtn');
+  const audioInput = document.getElementById('editAudioFileInput');
+  const analysisStatus = document.getElementById('editAnalysisStatus');
+
+  function applyEditAnalysis(analysis) {
+    editAnalysis = analysis;
+    const styleTags = analysis.styleTags || [];
+    document.getElementById('musicStyle').value = analysis.style || styleTags[0] || '';
+    document.getElementById('musicRhythmProfile').value = analysis.rhythmProfile || '';
+    document.getElementById('musicTempoBpm').value = analysis.bpm || '';
+    document.getElementById('musicEnergy').value = analysis.energy ?? '';
+    document.getElementById('musicDanceability').value = analysis.danceability ?? '';
+    analysisStatus.innerHTML = `<strong>Análise concluída:</strong> ${analysis.bpm ? `${analysis.bpm} BPM` : 'BPM não detectado'} · energia ${Math.round((analysis.energy || 0) * 100)}% · ritmo ${escapeHtml(analysis.rhythmProfile || 'indefinido')} · confiança ${Math.round((analysis.confidence || 0) * 100)}%<br><small>Estilos sugeridos: ${escapeHtml(styleTags.join(', ') || 'nenhum')}</small>`;
+  }
+
+  async function runEditAnalysis(file) {
+    if (!file || !window.FendaMusicAnalyzer?.analyzeAudioFile) return;
+    analyzeBtn.disabled = true;
+    chooseAudioBtn.disabled = true;
+    analysisStatus.textContent = 'Analisando BPM, energia, ritmo e estilo…';
+    try {
+      const analysis = await window.FendaMusicAnalyzer.analyzeAudioFile(file, {
+        genre: document.getElementById('musicGenre').value || data.genre || '',
+      });
+      applyEditAnalysis(analysis);
+      showToast('Análise concluída!', 'success');
+    } catch (error) {
+      analysisStatus.textContent = `Não foi possível analisar este áudio: ${error.message || 'formato não suportado'}`;
+      showToast('Não foi possível analisar o áudio', 'error');
+    } finally {
+      analyzeBtn.disabled = false;
+      chooseAudioBtn.disabled = false;
+    }
+  }
+
+  analyzeBtn.addEventListener('click', async () => {
+    if (!data.src) {
+      showToast('Esta música não possui um áudio salvo. Use Escolher áudio.', 'error');
+      return;
+    }
+    analyzeBtn.disabled = true;
+    chooseAudioBtn.disabled = true;
+    analysisStatus.textContent = 'Carregando o áudio salvo…';
+    try {
+      const response = await fetch(data.src, { mode: 'cors' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const file = new File([blob], `${data.title || 'musica'}.audio`, { type: blob.type || 'audio/mpeg' });
+      await runEditAnalysis(file);
+    } catch (error) {
+      analyzeBtn.disabled = false;
+      chooseAudioBtn.disabled = false;
+      analysisStatus.textContent = 'O áudio salvo não permitiu leitura automática. Escolha o arquivo original no botão ao lado.';
+      showToast('Não foi possível ler o áudio salvo. Use Escolher áudio.', 'error');
+    }
+  });
+
+  chooseAudioBtn.addEventListener('click', () => audioInput.click());
+  audioInput.addEventListener('change', () => {
+    const file = audioInput.files?.[0];
+    if (file) runEditAnalysis(file);
+    audioInput.value = '';
+  });
 
   document.getElementById('autoFetchCoverEditBtn').addEventListener('click', async () => {
     const title = document.getElementById('musicTitle').value.trim();
@@ -254,6 +334,10 @@ function openEditMusicModal(data) {
       const tempo_bpm = Number(document.getElementById('musicTempoBpm')?.value) || null;
       const energy_score = Number(document.getElementById('musicEnergy')?.value) || null;
       const danceability_score = Number(document.getElementById('musicDanceability')?.value) || null;
+      const style_tags = [...new Set([
+        ...(style ? style.split(',').map(s => s.trim()).filter(Boolean) : []),
+        ...(editAnalysis?.styleTags || []),
+      ])];
 
       if (!title || !artist) {
         showToast("Título e artista são obrigatórios", "error");
@@ -261,9 +345,16 @@ function openEditMusicModal(data) {
       }
 
       const lrc = document.getElementById('musicLrc')?.value.trim() || null;
+      const updates = { title, artist, cover: coverUrl, genre, style, style_tags, rhythm_profile, tempo_bpm, energy_score, danceability_score, lrc };
+      if (editAnalysis) {
+        updates.analysis_confidence = editAnalysis.confidence ?? null;
+        updates.analysis_source = editAnalysis.source || 'browser-acoustic-v1';
+        updates.analysis_version = editAnalysis.version || '1.0.0';
+        updates.analyzed_at = editAnalysis.analyzedAt || new Date().toISOString();
+      }
       const { error } = await supabaseClient
         .from('musics')
-        .update({ title, artist, cover: coverUrl, genre, style, style_tags: style ? style.split(',').map(s => s.trim()).filter(Boolean) : [], rhythm_profile, tempo_bpm, energy_score, danceability_score, lrc })
+        .update(updates)
         .eq('id', data.id);
 
       if (error) showToast("Erro ao atualizar", "error");
