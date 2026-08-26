@@ -163,6 +163,10 @@ async function _uploadAudioDiag(file) {
 function openNewMusicModal() {
   document.getElementById('modalTitle').innerText = 'Adicionar músicas';
   document.getElementById('modalBody').innerHTML = `
+    <div style="margin-bottom:12px; padding:12px 14px; border:1px solid rgba(192,132,252,.28); border-radius:14px; background:rgba(146,76,255,.09);">
+      <strong style="display:block; font-size:13px; margin-bottom:4px;">Catalogação automática</strong>
+      <span style="font-size:12px; color:rgba(255,255,255,.7);">Depois de escolher o áudio, aparecerão em cada faixa os campos <b>Pesquisar estilo</b> e <b>Analisar estilo e ritmo</b>. A análise detecta BPM, energia, ritmo e estilos sugeridos.</span>
+    </div>
     <div class="upload-area" id="uploadArea">
       <span class="material-symbols-rounded">cloud_upload</span>
       <p>Toque para escolher arquivos</p>
