@@ -27,10 +27,11 @@ async function readID3Tags(file) {
     jsmediatags.read(file, {
       onSuccess: (tag) => {
         const t = tag.tags || {};
-        resolve({
+          resolve({
           title:  (t.title  || '').trim() || fallback.title,
           artist: (t.artist || '').trim() || fallback.artist,
           album:  (t.album  || '').trim() || '',
+          genre:  (t.genre  || '').trim() || '',
         });
       },
       onError: () => resolve(fallback),
@@ -43,9 +44,9 @@ function _guessFromFilename(name) {
   const base = name.replace(/\.[^/.]+$/, '').replace(/^\d+\s*[-.]?\s*/, '');
   const dash = base.indexOf(' - ');
   if (dash > 0) {
-    return { artist: base.slice(0, dash).trim(), title: base.slice(dash + 3).trim(), album: '' };
+    return {     artist: base.slice(0, dash).trim(), title: base.slice(dash + 3).trim(), album: '', genre: '' };
   }
-  return { artist: '', title: base.trim(), album: '' };
+  return { artist: '', title: base.trim(), album: '', genre: '' };
 }
 
 // ========== EXTRAIR ÁUDIOS DE UM ZIP ==========
@@ -173,6 +174,9 @@ function openNewMusicModal() {
     <div id="zipStatus" class="upload-progress" style="display:none;"></div>
 
     <div id="reviewList"></div>
+    <datalist id="styleOptions">
+      ${(window.FendaMusicAnalyzer?.styles || []).map(s => `<option value="${escapeHtml(s)}">`).join('')}
+    </datalist>
 
     <div id="reviewTools" style="display:none; margin:4px 0 8px;">
       <button type="button" id="fetchAllCoversBtn" class="btn-icon" style="width:100%; justify-content:center;">
@@ -236,17 +240,40 @@ function openNewMusicModal() {
     if (!audioFiles.length) { showToast('Nenhum arquivo de áudio reconhecido', 'error'); return; }
 
     // Lê tags e adiciona à fila de revisão
+    const newItems = [];
     for (const file of audioFiles) {
       const tags = await readID3Tags(file);
-      uploadQueue.push({
+      const item = {
         file,
         title:  tags.title,
         artist: tags.artist,
-        genre:  '',
+        genre:  tags.genre || '',
+        style:  tags.genre || '',
+        styleTags: tags.genre ? [tags.genre] : [],
+        analysis: null,
         cover:  '',
         lrc:    null,
-      });
+      };
+      uploadQueue.push(item);
+      newItems.push(item);
     }
+
+    // Analisa os arquivos em paralelo para não bloquear desnecessariamente
+    // lotes grandes, mantendo a revisão editável após o processamento.
+    zipStatus.style.display = 'block';
+    zipStatus.textContent = `Analisando estilo e ritmo de ${newItems.length} faixa(s)…`;
+    await Promise.all(newItems.map(async item => {
+      try {
+        if (window.FendaMusicAnalyzer?.analyzeAudioFile) {
+          item.analysis = await window.FendaMusicAnalyzer.analyzeAudioFile(item.file, { genre: item.genre });
+          item.style = item.style || item.analysis.style;
+          item.styleTags = item.analysis.styleTags || item.styleTags;
+        }
+      } catch (error) {
+        item.analysisError = error.message || 'Análise indisponível';
+      }
+    }));
+    zipStatus.style.display = 'none';
     renderReviewList();
   }
 
@@ -294,7 +321,7 @@ function openNewMusicModal() {
         </div>
         <div class="track-row-2">
           <div class="form-group">
-            <label>Gênero</label>
+            <label>Gênero principal</label>
             <select class="tr-genre">
               <option value="">Sem gênero</option>
               ${['Gospel','Adoração','Louvores','Contemporâneo','Rock Cristão','MPB','Pop','Rock']
@@ -302,11 +329,17 @@ function openNewMusicModal() {
             </select>
           </div>
           <div class="form-group">
-            <label>URL da capa (atalho)</label>
-            <input type="url" class="tr-cover-url-alt" placeholder="Cole URL direto aqui também" style="font-size:11px;">
+            <label>Pesquisar estilo</label>
+            <input type="text" class="tr-style" list="styleOptions" value="${escapeHtml(item.style || '')}" placeholder="Ex.: Soul, Pop, Adoração">
           </div>
         </div>
+        <div class="track-analysis-box" style="margin:8px 0; padding:10px; border:1px solid rgba(192,132,252,.22); border-radius:12px; background:rgba(146,76,255,.07); font-size:11px; color:rgba(255,255,255,.72);">
+          ${item.analysis ? `<strong>Leitura automática:</strong> ${item.analysis.bpm ? `${item.analysis.bpm} BPM` : 'BPM não detectado'} · energia ${Math.round((item.analysis.energy || 0) * 100)}% · ritmo ${escapeHtml(item.analysis.rhythmProfile || 'indefinido')} · confiança ${Math.round((item.analysis.confidence || 0) * 100)}%<br><small>Estilos sugeridos: ${escapeHtml((item.styleTags || []).join(', ') || 'nenhum')}</small>` : `<span>${escapeHtml(item.analysisError || 'Análise pendente')}</span>`}
+        </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn-icon tr-analyze-audio">
+            <span class="material-symbols-rounded">auto_awesome</span> Analisar estilo e ritmo
+          </button>
           <button type="button" class="btn-icon tr-fetch-cover">
             <span class="material-symbols-rounded">image_search</span> Buscar capa
           </button>
@@ -352,7 +385,26 @@ function openNewMusicModal() {
           item.artist = r.name; artistInput.value = r.name;
         });
       }, 350));
-      card.querySelector('.tr-genre').addEventListener('change', e => { item.genre  = e.target.value; });
+      card.querySelector('.tr-genre').addEventListener('change', e => { item.genre = e.target.value; });
+      card.querySelector('.tr-style').addEventListener('input', e => {
+        item.style = e.target.value.trim();
+        item.styleTags = item.style ? item.style.split(',').map(s => s.trim()).filter(Boolean) : (item.analysis?.styleTags || []);
+      });
+      card.querySelector('.tr-analyze-audio').addEventListener('click', async e => {
+        const btn = e.currentTarget;
+        if (!window.FendaMusicAnalyzer?.analyzeAudioFile) return;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-rounded">hourglass_top</span> Analisando…';
+        try {
+          item.analysis = await window.FendaMusicAnalyzer.analyzeAudioFile(item.file, { genre: item.genre });
+          if (!item.style) item.style = item.analysis.style;
+          item.styleTags = item.style ? [...new Set([item.style, ...(item.analysis.styleTags || [])])] : item.analysis.styleTags;
+          renderReviewList();
+        } catch (error) {
+          item.analysisError = error.message || 'Análise indisponível';
+          renderReviewList();
+        }
+      });
       const coverUrlInput = card.querySelector('.tr-cover');
       coverUrlInput.addEventListener('input',  e => {
         item.cover = e.target.value.trim();
@@ -475,6 +527,16 @@ function openNewMusicModal() {
         src:    up.url,
         cover:  item.cover || null,
         genre:  item.genre || null,
+        style:  item.style || item.analysis?.style || null,
+        style_tags: item.styleTags?.length ? item.styleTags : (item.analysis?.styleTags || []),
+        tempo_bpm: item.analysis?.bpm || null,
+        energy_score: item.analysis?.energy ?? null,
+        danceability_score: item.analysis?.danceability ?? null,
+        rhythm_profile: item.analysis?.rhythmProfile || null,
+        analysis_confidence: item.analysis?.confidence ?? null,
+        analysis_source: item.analysis?.source || null,
+        analysis_version: item.analysis?.version || null,
+        analyzed_at: item.analysis?.analyzedAt || null,
         lrc:    item.lrc || null,
       }]);
       if (error) {

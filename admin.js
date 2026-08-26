@@ -153,9 +153,11 @@ async function loadMusics() {
       <h3>${escapeHtml(music.title)}</h3>
       <p><strong>Artista:</strong> ${escapeHtml(music.artist)}</p>
       ${music.cover ? `<img src="${music.cover}" alt="Capa">` : ''}
-      <p><strong>Gênero:</strong> ${music.genre || '—'}</p>
+      <p><strong>Gênero:</strong> ${escapeHtml(music.genre || '—')}</p>
+      <p><strong>Estilo:</strong> ${escapeHtml(music.style || (music.style_tags || []).join(', ') || '—')}</p>
+      <p><strong>Ritmo:</strong> ${music.tempo_bpm ? `${music.tempo_bpm} BPM · ${escapeHtml(music.rhythm_profile || 'indefinido')}` : 'não analisado'}</p>
       <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-        <button class="btn-icon edit-music" data-id="${music.id}" data-title="${escapeHtml(music.title)}" data-artist="${escapeHtml(music.artist)}" data-cover="${music.cover || ''}" data-src="${music.src}" data-lrc="${music.lrc || ''}" data-genre="${music.genre || ''}">
+        <button class="btn-icon edit-music" data-id="${music.id}" data-title="${escapeHtml(music.title)}" data-artist="${escapeHtml(music.artist)}" data-cover="${music.cover || ''}" data-src="${music.src}" data-lrc="${music.lrc || ''}" data-genre="${music.genre || ''}" data-style="${music.style || ''}" data-style-tags="${(music.style_tags || []).join(', ')}" data-tempo-bpm="${music.tempo_bpm || ''}" data-energy="${music.energy_score || ''}" data-danceability="${music.danceability_score || ''}" data-rhythm-profile="${music.rhythm_profile || ''}" data-analysis-confidence="${music.analysis_confidence || ''}">
           <span class="material-symbols-rounded">edit</span> Editar
         </button>
         <button class="btn-icon danger delete-music" data-id="${music.id}" data-title="${escapeHtml(music.title)}">
@@ -194,6 +196,14 @@ function openEditMusicModal(data) {
         <option value="Pop" ${data.genre === 'Pop' ? 'selected' : ''}>Pop</option>
       </select>
     </div>
+    <div class="form-group"><label>Pesquisar estilo</label><input type="text" id="musicStyle" list="adminStyleOptions" value="${data.style || data.styleTags || ''}" placeholder="Ex.: Soul, Pop, Adoração"></div>
+    <div class="form-group"><label>Ritmo detectado</label><input type="text" id="musicRhythmProfile" value="${data.rhythmProfile || ''}" placeholder="lento, moderado, rápido"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+      <div class="form-group"><label>BPM</label><input type="number" id="musicTempoBpm" min="30" max="240" step="0.1" value="${data.tempoBpm || ''}"></div>
+      <div class="form-group"><label>Energia</label><input type="number" id="musicEnergy" min="0" max="1" step="0.01" value="${data.energy || ''}"></div>
+      <div class="form-group"><label>Dança</label><input type="number" id="musicDanceability" min="0" max="1" step="0.01" value="${data.danceability || ''}"></div>
+    </div>
+    <datalist id="adminStyleOptions">${(window.FendaMusicAnalyzer?.styles || []).map(s => `<option value="${escapeHtml(s)}">`).join('')}</datalist>
   `;
   const modal = document.getElementById('genericModal');
   modal.classList.add('active');
@@ -239,6 +249,11 @@ function openEditMusicModal(data) {
       const artist = document.getElementById('musicArtist').value.trim();
       const coverUrl = document.getElementById('musicCoverUrl').value.trim();
       const genre = document.getElementById('musicGenre').value || null;
+      const style = document.getElementById('musicStyle')?.value.trim() || null;
+      const rhythm_profile = document.getElementById('musicRhythmProfile')?.value.trim() || null;
+      const tempo_bpm = Number(document.getElementById('musicTempoBpm')?.value) || null;
+      const energy_score = Number(document.getElementById('musicEnergy')?.value) || null;
+      const danceability_score = Number(document.getElementById('musicDanceability')?.value) || null;
 
       if (!title || !artist) {
         showToast("Título e artista são obrigatórios", "error");
@@ -248,7 +263,7 @@ function openEditMusicModal(data) {
       const lrc = document.getElementById('musicLrc')?.value.trim() || null;
       const { error } = await supabaseClient
         .from('musics')
-        .update({ title, artist, cover: coverUrl, genre, lrc })
+        .update({ title, artist, cover: coverUrl, genre, style, style_tags: style ? style.split(',').map(s => s.trim()).filter(Boolean) : [], rhythm_profile, tempo_bpm, energy_score, danceability_score, lrc })
         .eq('id', data.id);
 
       if (error) showToast("Erro ao atualizar", "error");

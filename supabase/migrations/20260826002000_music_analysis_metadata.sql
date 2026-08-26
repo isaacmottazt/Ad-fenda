@@ -1,0 +1,12 @@
+alter table public.musics add column if not exists style text;
+alter table public.musics add column if not exists style_tags text[] not null default '{}';
+alter table public.musics add column if not exists tempo_bpm numeric(6,2);
+alter table public.musics add column if not exists energy_score numeric(5,4);
+alter table public.musics add column if not exists danceability_score numeric(5,4);
+alter table public.musics add column if not exists rhythm_profile text;
+alter table public.musics add column if not exists analysis_confidence numeric(5,4);
+alter table public.musics add column if not exists analysis_source text;
+alter table public.musics add column if not exists analysis_version text;
+alter table public.musics add column if not exists analyzed_at timestamptz;
+create index if not exists musics_style_tags_gin_idx on public.musics using gin (style_tags);
+create index if not exists musics_tempo_bpm_idx on public.musics (tempo_bpm);
