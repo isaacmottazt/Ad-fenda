@@ -197,6 +197,10 @@ function openEditMusicModal(data) {
         <option value="Rock" ${data.genre === 'Rock' ? 'selected' : ''}>Rock</option>
         <option value="Pop" ${data.genre === 'Pop' ? 'selected' : ''}>Pop</option>
       </select>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button type="button" id="searchGenreOnlineBtn" class="btn-icon" style="flex:1; justify-content:center;">Pesquisar gênero</button>
+      </div>
+      <div id="genreSearchResults" style="margin-top:8px;"></div>
     </div>
     <div style="margin:4px 0 14px; padding:12px 14px; border:1px solid rgba(192,132,252,.25); border-radius:14px; background:rgba(146,76,255,.08);">
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -236,6 +240,42 @@ function openEditMusicModal(data) {
   const analysisStatus = document.getElementById('editAnalysisStatus');
   const searchStyleBtn = document.getElementById('searchStyleOnlineBtn');
   const styleSearchResults = document.getElementById('styleSearchResults');
+  const searchGenreBtn = document.getElementById('searchGenreOnlineBtn');
+  const genreSearchResults = document.getElementById('genreSearchResults');
+
+  searchGenreBtn.addEventListener('click', async () => {
+    const title = document.getElementById('musicTitle').value.trim();
+    const artist = document.getElementById('musicArtist').value.trim();
+    if (!title || !artist) {
+      showToast('Preencha título e artista antes de pesquisar o gênero', 'error');
+      return;
+    }
+    searchGenreBtn.disabled = true;
+    searchGenreBtn.textContent = 'Pesquisando gênero…';
+    genreSearchResults.textContent = 'Consultando fontes musicais…';
+    try {
+      const result = await window.searchStyleOnline(title, artist, '');
+      onlineStyleSource = result.source;
+      const genres = [...new Set((result.genres || []).filter(Boolean))];
+      if (!genres.length) {
+        genreSearchResults.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Nenhum gênero encontrado. <a href="${result.searchUrl}" target="_blank" rel="noopener">Abrir pesquisa no Google</a></span>`;
+        return;
+      }
+      genreSearchResults.innerHTML = `<div style="font-size:11px; color:rgba(255,255,255,.7); margin-bottom:6px;">Gênero encontrado${result.source ? ` (${escapeHtml(result.source)})` : ''} para ${escapeHtml(result.match?.title || title)} · ${escapeHtml(result.match?.artist || artist)}:</div><div style="display:flex; gap:6px; flex-wrap:wrap;">${genres.map(genreName => `<button type="button" class="btn-icon genre-suggestion" data-genre="${escapeHtml(genreName)}">${escapeHtml(genreName)}</button>`).join('')}<a class="btn-icon" href="${result.searchUrl}" target="_blank" rel="noopener">Abrir pesquisa</a></div>`;
+      genreSearchResults.querySelectorAll('.genre-suggestion').forEach(button => button.addEventListener('click', () => {
+        const select = document.getElementById('musicGenre');
+        if (![...select.options].some(option => option.value === button.dataset.genre)) select.add(new Option(button.dataset.genre, button.dataset.genre));
+        select.value = button.dataset.genre;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        showToast('Gênero aplicado ao formulário', 'success');
+      }));
+    } catch (error) {
+      genreSearchResults.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Pesquisa indisponível. <a href="https://www.google.com/search?q=${encodeURIComponent(`${title} ${artist} gênero musical`)}" target="_blank" rel="noopener">Abrir no Google</a></span>`;
+    } finally {
+      searchGenreBtn.disabled = false;
+      searchGenreBtn.textContent = 'Pesquisar gênero';
+    }
+  });
 
   searchStyleBtn.addEventListener('click', async () => {
     const title = document.getElementById('musicTitle').value.trim();

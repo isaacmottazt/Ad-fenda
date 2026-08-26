@@ -373,6 +373,8 @@ function openNewMusicModal() {
               ${['Gospel','Adoração','Louvores','Contemporâneo','Rock Cristão','MPB','Pop','Rock']
                 .map(g => `<option value="${g}" ${item.genre === g ? 'selected' : ''}>${g}</option>`).join('')}
             </select>
+            <button type="button" class="btn-icon tr-search-genre" style="width:100%; justify-content:center; margin-top:8px;">Pesquisar gênero</button>
+            <div class="tr-genre-results" style="margin-top:8px;"></div>
           </div>
           <div class="form-group">
             <label>Pesquisar estilo</label>
@@ -436,6 +438,38 @@ function openNewMusicModal() {
         });
       }, 350));
       card.querySelector('.tr-genre').addEventListener('change', e => { item.genre = e.target.value; });
+      card.querySelector('.tr-search-genre').addEventListener('click', async e => {
+        const button = e.currentTarget;
+        const resultsBox = card.querySelector('.tr-genre-results');
+        if (!item.title || !item.artist) {
+          showToast('Preencha título e artista antes de pesquisar o gênero', 'error');
+          return;
+        }
+        button.disabled = true;
+        button.textContent = 'Pesquisando gênero…';
+        resultsBox.textContent = 'Consultando fontes musicais…';
+        try {
+          const result = await searchStyleOnline(item.title, item.artist, '');
+          const genres = [...new Set((result.genres || []).filter(Boolean))];
+          if (!genres.length) {
+            resultsBox.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Nenhum gênero encontrado. <a href="${result.searchUrl}" target="_blank" rel="noopener">Abrir pesquisa</a></span>`;
+            return;
+          }
+          resultsBox.innerHTML = `<div style="font-size:11px; color:rgba(255,255,255,.7); margin-bottom:6px;">Gênero encontrado${result.source ? ` (${escapeHtml(result.source)})` : ''}:</div><div style="display:flex; gap:6px; flex-wrap:wrap;">${genres.map(genreName => `<button type="button" class="btn-icon tr-genre-suggestion" data-genre="${escapeHtml(genreName)}">${escapeHtml(genreName)}</button>`).join('')}<a class="btn-icon" href="${result.searchUrl}" target="_blank" rel="noopener">Abrir pesquisa</a></div>`;
+          resultsBox.querySelectorAll('.tr-genre-suggestion').forEach(suggestion => suggestion.addEventListener('click', () => {
+            item.genre = suggestion.dataset.genre;
+            const select = card.querySelector('.tr-genre');
+            if (![...select.options].some(option => option.value === item.genre)) select.add(new Option(item.genre, item.genre));
+            select.value = item.genre;
+            showToast('Gênero aplicado à faixa', 'success');
+          }));
+        } catch (error) {
+          resultsBox.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Pesquisa indisponível. <a href="https://www.google.com/search?q=${encodeURIComponent(`${item.title} ${item.artist} gênero musical`)}" target="_blank" rel="noopener">Abrir no Google</a></span>`;
+        } finally {
+          button.disabled = false;
+          button.textContent = 'Pesquisar gênero';
+        }
+      });
       card.querySelector('.tr-search-style').addEventListener('click', async e => {
         const button = e.currentTarget;
         const resultsBox = card.querySelector('.tr-style-results');
