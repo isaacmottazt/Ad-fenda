@@ -377,11 +377,12 @@ function openNewMusicModal() {
             <div class="tr-genre-results" style="margin-top:8px;"></div>
           </div>
           <div class="form-group">
-            <label>Pesquisar estilo</label>
+            <label>Estilo da música</label>
             <div style="display:flex; gap:8px; align-items:stretch;">
-              <input type="text" class="tr-style" list="styleOptions" value="${escapeHtml(item.style || '')}" placeholder="Ex.: Soul, Pop, Adoração" style="flex:1; min-width:0;">
-              <button type="button" class="btn-icon tr-search-style" style="white-space:nowrap;">Pesquisar</button>
+              <input type="text" class="tr-style" list="styleOptions" value="${escapeHtml(item.style || '')}" placeholder="Digite livremente: Soul, worship, acústico…" style="flex:1; min-width:0;">
+              <button type="button" class="btn-icon tr-search-style" style="white-space:nowrap;">Buscar sugestões</button>
             </div>
+            <small style="display:block; margin-top:6px; color:rgba(255,255,255,.58);">Você pode escrever o estilo manualmente ou usar sugestões.</small>
             <div class="tr-style-results" style="margin-top:8px;"></div>
           </div>
         </div>
@@ -497,7 +498,7 @@ function openNewMusicModal() {
           resultsBox.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Pesquisa indisponível. <a href="https://www.google.com/search?q=${encodeURIComponent(`${item.title} ${item.artist} gênero estilo música`)}" target="_blank" rel="noopener">Abrir no Google</a></span>`;
         } finally {
           button.disabled = false;
-          button.textContent = 'Pesquisar';
+          button.textContent = 'Buscar sugestões';
         }
       });
       card.querySelector('.tr-style').addEventListener('input', e => {

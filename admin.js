@@ -216,11 +216,12 @@ function openEditMusicModal(data) {
         ${data.analysisSource ? `Última análise: ${escapeHtml(data.analysisSource)}${data.analysisVersion ? ` · v${escapeHtml(data.analysisVersion)}` : ''}` : 'Analise o áudio salvo ou escolha outro arquivo para preencher os metadados automaticamente.'}
       </div>
     </div>
-    <div class="form-group"><label>Pesquisar estilo</label>
+    <div class="form-group"><label>Estilo da música</label>
       <div style="display:flex; gap:8px; align-items:stretch;">
-        <input type="text" id="musicStyle" list="adminStyleOptions" value="${data.style || data.styleTags || ''}" placeholder="Ex.: Soul, Pop, Adoração" style="flex:1; min-width:0;">
-        <button type="button" id="searchStyleOnlineBtn" class="btn-icon" style="white-space:nowrap;">Pesquisar</button>
+        <input type="text" id="musicStyle" list="adminStyleOptions" value="${data.style || data.styleTags || ''}" placeholder="Digite livremente: Soul, worship, acústico…" style="flex:1; min-width:0;">
+        <button type="button" id="searchStyleOnlineBtn" class="btn-icon" style="white-space:nowrap;">Buscar sugestões</button>
       </div>
+      <small style="display:block; margin-top:6px; color:rgba(255,255,255,.58);">Você pode escrever um estilo próprio ou separar vários por vírgula. A busca automática é opcional.</small>
       <div id="styleSearchResults" style="margin-top:8px;"></div>
     </div>
     <div class="form-group"><label>Ritmo detectado</label><input type="text" id="musicRhythmProfile" value="${data.rhythmProfile || ''}" placeholder="lento, moderado, rápido"></div>
@@ -307,7 +308,7 @@ function openEditMusicModal(data) {
       styleSearchResults.innerHTML = `<span style="font-size:11px; color:rgba(255,255,255,.65);">Pesquisa indisponível. <a href="https://www.google.com/search?q=${encodeURIComponent(`${title} ${artist} gênero estilo música`)}" target="_blank" rel="noopener">Abrir no Google</a></span>`;
     } finally {
       searchStyleBtn.disabled = false;
-      searchStyleBtn.textContent = 'Pesquisar';
+      searchStyleBtn.textContent = 'Buscar sugestões';
     }
   });
 
