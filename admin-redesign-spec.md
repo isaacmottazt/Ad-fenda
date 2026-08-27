@@ -73,3 +73,8 @@ A nova tela de login administrativa foi validada localmente em viewport desktop.
 ## Acesso administrativo e animação
 
 A opção `Criar conta` foi removida do login do Admin, junto com os campos e handlers de cadastro. A tela agora oferece somente login por e-mail e senha, recuperação de senha e Google. O cartão `Ambiente protegido` recebeu flutuação suave, pulso do indicador de segurança, barras com variação de escala e uma linha de brilho que percorre o card. A animação respeita `prefers-reduced-motion`.
+
+
+## Validação da correção de destinatário específico
+
+Após a atualização da restrição do Supabase, foi repetido o envio real de um aviso para um único usuário selecionado no Admin. O erro `admin_notifications_target_check` não ocorreu: o painel exibiu `Notificação enviada para 1 usuário(s)!` e criou o card com status inicial `dispatching`. A confirmação do status final será consultada no Supabase.
