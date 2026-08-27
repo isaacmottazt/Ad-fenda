@@ -138,6 +138,30 @@ async function openNewMessageModal() {
   const userSelector = document.getElementById('userSelector');
   const customVarsGroup = document.getElementById('customVarsGroup');
   const dynamicFields = document.getElementById('dynamicFields');
+  const messageBody = document.getElementById('messageBody');
+  let updatingTemplateBody = false;
+
+  function syncTemplateBody() {
+    const template = messageTemplates[messageType.value];
+    if (!template || messageBody.dataset.manual === '1') return;
+    let rendered = template.template;
+    const values = {
+      '{music_title}': document.getElementById('musicTitle')?.value.trim() || '{music_title}',
+      '{artist_name}': document.getElementById('musicArtist')?.value.trim() || '{artist_name}',
+      '{music_count}': document.getElementById('musicCount')?.value || '{music_count}',
+      '{announcement_text}': document.getElementById('announcementText')?.value.trim() || '{announcement_text}',
+      '{custom_message}': '{custom_message}',
+    };
+    Object.entries(values).forEach(([token, value]) => { rendered = rendered.replaceAll(token, value); });
+    updatingTemplateBody = true;
+    messageBody.value = rendered;
+    messageBody.dataset.autofilled = '1';
+    updatingTemplateBody = false;
+  }
+
+  messageBody.addEventListener('input', () => {
+    if (!updatingTemplateBody) messageBody.dataset.manual = '1';
+  });
 
   // Função para renderizar campos dinâmicos
   function renderDynamicFields() {
@@ -184,7 +208,12 @@ async function openNewMessageModal() {
       templatePreview.style.display = 'block';
       templateText.textContent = template.template;
       document.getElementById('messageTitle').value = template.title;
+      messageBody.dataset.manual = '0';
       customVarsGroup.style.display = 'none';
+      syncTemplateBody();
+      ['musicTitle', 'musicArtist', 'musicCount', 'announcementText'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', syncTemplateBody);
+      });
     } else {
       templatePreview.style.display = 'none';
       document.getElementById('messageTitle').value = '';
@@ -198,6 +227,7 @@ async function openNewMessageModal() {
 
   // Renderizar campos inicialmente
   renderDynamicFields();
+  messageBody.dataset.manual = '0';
 
   setupModalSave(async () => {
     const title = document.getElementById('messageTitle').value.trim();
@@ -378,6 +408,8 @@ async function loadMessages() {
 
     const card = document.createElement('div');
     card.className = 'msg-card';
+    card.dataset.messageType = msg.metadata?.template_type || 'custom';
+    card.dataset.messageStatus = msg.status || '';
     card.innerHTML = `
       <div class="msg-card-icon"><span class="material-symbols-rounded">${meta.icon}</span></div>
       <div class="msg-card-body">
@@ -457,6 +489,7 @@ async function loadSubmissions() {
 
     const card = document.createElement('div');
     card.className = `sub-card ${sub.status}`;
+    card.dataset.submissionStatus = sub.status || '';
     card.innerHTML = `
       <div class="sub-card-head">
         <div class="sub-card-title">
