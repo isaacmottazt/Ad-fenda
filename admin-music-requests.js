@@ -81,7 +81,12 @@
     const setText = (id, value) => { const node = document.getElementById(id); if (node) node.textContent = value || '—'; };
     setText('requestDetailTitle', request.title || 'Sem título');
     setText('requestDetailArtist', request.artist || 'Artista não informado');
-    setText('requestDetailSource', request.source_provider || 'Busca do usuário');
+    const sourceNode = document.getElementById('requestDetailSource');
+    const sourceLabel = request.source_provider || 'Busca do usuário';
+    const sourceUrl = safeUrl(request.source_url);
+    if (sourceNode) sourceNode.innerHTML = sourceUrl
+      ? `<a href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer">${esc(sourceLabel)} <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span></a>`
+      : esc(sourceLabel);
     setText('requestDetailAlbum', request.album || 'Não informado');
     setText('requestDetailAudio', request.audio_url ? 'Áudio autorizado anexado' : 'Ainda não enviado');
     setText('requestDetailStatus', REQUEST_STATUS_LABELS[request.status] || request.status || '—');

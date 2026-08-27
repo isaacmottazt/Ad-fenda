@@ -284,6 +284,9 @@
     .request-detail-stat span, .request-detail-stat strong { display:block; }
     .request-detail-stat span { color:var(--text-muted); font-size:9px; }
     .request-detail-stat strong { margin-top:5px; color:var(--text); font-size:11px; overflow-wrap:anywhere; }
+    .request-detail-stat strong a { display:inline-flex; align-items:center; gap:4px; color:var(--cyan); text-decoration:none; }
+    .request-detail-stat strong a:hover { text-decoration:underline; }
+    .request-detail-stat strong a .material-symbols-rounded { font-size:14px; }
     .request-detail-note { margin-top:12px; padding:11px; color:var(--text-soft); background:rgba(126,232,225,.06); border:1px solid rgba(126,232,225,.14); border-radius:11px; font-size:10px; line-height:1.5; }
     .request-detail-note strong { color:var(--text); }
     .request-detail-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; }
@@ -582,8 +585,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="music-analyzer.js?v=20260826-5"></script>
-  <script src="admin-music-requests.js?v=music-requests-v2"></script>
-  <script src="admin.js?v=music-requests-v2"></script>
+  <script src="admin-music-requests.js?v=music-requests-v3"></script>
+  <script src="admin.js?v=music-requests-v3"></script>
   <script src="admin-music-upload.js?v=20260827-2"></script>
   <script src="admin-messages.js?v=20260827-2"></script>
   <script src="admin-ui.js?v=20260827-2"></script>

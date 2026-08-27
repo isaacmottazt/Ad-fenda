@@ -943,10 +943,8 @@ async function initAdmin() {
   }
 
   const TAB_TITLES = {
-    users: 'Usuários', privacy: 'Privacidade', musics: 'Músicas', artists: 'Artistas',
-      submissions: 'Submissões',
-  requests: 'Solicitações',
-  messages: 'Notificações', podcasts: 'Podcasts',
+    overview: 'Visão geral', users: 'Usuários', privacy: 'Privacidade', musics: 'Músicas', artists: 'Artistas',
+    submissions: 'Submissões', requests: 'Solicitações', messages: 'Notificações', podcasts: 'Podcasts',
   };
   function switchTab(tabId) {
     panes.forEach(pane => pane.classList.remove('active'));
@@ -972,9 +970,11 @@ async function initAdmin() {
     });
   });
 
-  if (tabs.length > 0 && tabs[0].dataset.tab) {
-    switchTab(tabs[0].dataset.tab);
-  }
+  const requestedTab = String(location.hash || '').replace(/^#/, '');
+  const initialTab = TAB_TITLES[requestedTab] && document.querySelector(`.admin-tab[data-tab="${CSS.escape(requestedTab)}"]`)
+    ? requestedTab
+    : tabs[0]?.dataset.tab;
+  if (initialTab) switchTab(initialTab);
 
   const newMusicBtn = document.getElementById('newMusicBtn');
   const newArtistBtn = document.getElementById('newArtistBtn');
