@@ -930,6 +930,7 @@ async function initAdmin() {
     // a aba começava vazia até você enviar algo
     (typeof loadMessages === 'function' ? loadMessages() : Promise.resolve()),
     (typeof loadSubmissions === 'function' ? loadSubmissions() : Promise.resolve()),
+    (typeof loadMusicRequests === 'function' ? loadMusicRequests() : Promise.resolve()),
     loadPrivacyData(),
   ]);
 
@@ -943,7 +944,9 @@ async function initAdmin() {
 
   const TAB_TITLES = {
     users: 'Usuários', privacy: 'Privacidade', musics: 'Músicas', artists: 'Artistas',
-    submissions: 'Submissões', messages: 'Notificações', podcasts: 'Podcasts',
+      submissions: 'Submissões',
+  requests: 'Solicitações',
+  messages: 'Notificações', podcasts: 'Podcasts',
   };
   function switchTab(tabId) {
     panes.forEach(pane => pane.classList.remove('active'));

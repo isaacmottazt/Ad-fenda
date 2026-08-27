@@ -9,13 +9,14 @@
     musics: 'Músicas',
     artists: 'Artistas',
     submissions: 'Submissões',
+    requests: 'Solicitações',
     messages: 'Notificações',
     podcasts: 'Podcasts',
   };
 
   const TAB_ICONS = {
     overview: 'space_dashboard', users: 'group', privacy: 'privacy_tip',
-    musics: 'library_music', artists: 'mic', submissions: 'rate_review', messages: 'campaign', podcasts: 'podcasts',
+    musics: 'library_music', artists: 'mic', submissions: 'rate_review', requests: 'playlist_add_check', messages: 'campaign', podcasts: 'podcasts',
   };
 
   let paletteResults = [];
@@ -175,7 +176,7 @@
       if (TAB_TITLES[tab].toLowerCase().includes(q)) results.push({ kind: 'module', tab, icon: TAB_ICONS[tab], title: TAB_TITLES[tab], meta: 'Abrir seção' });
       const pane = document.getElementById(`${tab}Tab`);
       if (!pane) return;
-      const records = pane.querySelectorAll('.admin-card, .msg-card, .sub-card, .privacy-record');
+      const records = pane.querySelectorAll('.admin-card, .msg-card, .sub-card, .request-card, .privacy-record');
       records.forEach(record => {
         const text = record.textContent.toLowerCase();
         if (!text.includes(q) || results.length >= 20) return;
@@ -243,6 +244,7 @@
       musics: window.loadMusics,
       artists: window.loadArtists,
       submissions: window.loadSubmissions,
+      requests: window.loadMusicRequests,
       messages: window.loadMessages,
       podcasts: window.loadPodcasts,
     };
@@ -319,7 +321,7 @@
       }
       if (!editing && event.key === '/') { event.preventDefault(); openPalette(); return; }
       if (editing || event.altKey || event.ctrlKey || event.metaKey) return;
-      const shortcut = { g: 'overview', h: 'overview', u: 'users', p: 'privacy', m: 'musics', a: 'artists', s: 'messages', n: 'messages', o: 'podcasts' }[event.key.toLowerCase()];
+      const shortcut = { g: 'overview', h: 'overview', u: 'users', p: 'privacy', m: 'musics', a: 'artists', r: 'requests', s: 'messages', n: 'messages', o: 'podcasts' }[event.key.toLowerCase()];
       if (shortcut) openTab(shortcut);
       if (event.key === 'Escape') { closeSidebar(); document.getElementById('genericModal')?.classList.remove('active'); }
     });
@@ -331,7 +333,7 @@
       clearTimeout(refreshTimer);
       refreshTimer = setTimeout(refreshOverview, 180);
     });
-    ['usersList', 'musicsList', 'artistsList', 'messagesList', 'subsList', 'podcastsList'].forEach(id => {
+      ['usersList', 'musicsList', 'artistsList', 'messagesList', 'subsList', 'requestsList', 'podcastsList'].forEach(id => {
       const node = document.getElementById(id);
       if (node) observer.observe(node, { childList: true });
     });

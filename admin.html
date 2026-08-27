@@ -238,6 +238,63 @@
     .sub-msg { margin-top: 9px; padding: 9px 10px; color: var(--text-soft); background: rgba(255,255,255,.035); border-radius: 9px; font-size: 12px; line-height: 1.45; }
     .sub-card audio { width: 100%; height: 36px; margin: 11px 0 2px; }
     .sub-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+    .request-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 14px; }
+    .request-summary-card { min-height: 86px; padding: 14px; background: linear-gradient(145deg, rgba(126,232,225,.08), rgba(255,255,255,.025)); border: 1px solid var(--line); border-radius: 15px; }
+    .request-summary-card strong { display:block; font-size: 25px; letter-spacing: -.06em; }
+    .request-summary-card span { display:block; margin-top: 5px; color: var(--text-soft); font-size: 10px; line-height: 1.35; }
+    .request-layout { display: grid; grid-template-columns: minmax(0,1.18fr) minmax(300px,.82fr); gap: 14px; align-items: start; }
+    .request-queue, .request-detail { min-width: 0; padding: 17px; background: rgba(14,21,36,.78); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+    .request-queue-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:13px; }
+    .request-queue-head h3 { font-size: 14px; letter-spacing: -.025em; }
+    .request-queue-head p { margin-top: 4px; color: var(--text-muted); font-size: 11px; }
+    .request-card { padding: 13px; margin-bottom: 9px; background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 15px; cursor: pointer; transition: border-color .18s, background .18s, transform .18s var(--ease-out); }
+    .request-card:hover, .request-card.selected { background: rgba(126,232,225,.065); border-color: rgba(126,232,225,.32); }
+    .request-card:hover { transform: translateY(-1px); }
+    .request-card-head { display:flex; align-items:flex-start; gap:10px; }
+    .request-card-art { width: 42px; height: 42px; display:grid; place-items:center; flex:0 0 auto; overflow:hidden; color:#07101e; background: linear-gradient(145deg, var(--cyan), var(--blue)); border-radius: 11px; }
+    .request-card-art img { width:100%; height:100%; object-fit:cover; }
+    .request-card-main { min-width:0; flex:1; }
+    .request-card-main strong, .request-card-main small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .request-card-main strong { font-size:12px; }
+    .request-card-main small { margin-top:4px; color:var(--text-soft); font-size:10px; }
+    .request-status { display:inline-flex; align-items:center; flex:0 0 auto; padding:4px 7px; border-radius:99px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+    .request-status.pending { color:var(--yellow); background:rgba(244,201,107,.11); }
+    .request-status.reviewing { color:var(--blue); background:rgba(119,169,255,.12); }
+    .request-status.approved { color:var(--green); background:rgba(112,221,177,.11); }
+    .request-status.rejected, .request-status.blocked { color:var(--red); background:rgba(255,143,155,.11); }
+    .request-status.published { color:var(--cyan); background:rgba(126,232,225,.11); }
+    .request-card-meta { display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:10px; color:var(--text-muted); font-size:10px; }
+    .request-card-meta span { display:inline-flex; align-items:center; gap:4px; }
+    .request-card-meta .material-symbols-rounded { font-size:14px; color:var(--cyan); }
+    .request-card-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+    .request-card-actions .btn-icon { min-height:31px; padding:0 9px; font-size:10px; }
+    .request-detail { position:sticky; top:92px; }
+    .request-detail-kicker { color:var(--cyan); font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    .request-detail-head { display:flex; align-items:center; gap:12px; margin-top:11px; }
+    .request-detail-art { width:74px; height:74px; display:grid; place-items:center; flex:0 0 auto; overflow:hidden; color:#fff; border-radius:16px; font-size:27px; }
+    .request-detail-art img { width:100%; height:100%; object-fit:cover; }
+    .request-cover-ocean { background:linear-gradient(145deg,#3bc5c9,#5e71dd); }
+    .request-cover-purple { background:linear-gradient(145deg,#a985ff,#4b62df); }
+    .request-cover-red { background:linear-gradient(145deg,#fb7185,#a73768); }
+    .request-cover-green { background:linear-gradient(145deg,#4fd1a5,#267d82); }
+    .request-detail-head h3 { font-size:16px; letter-spacing:-.04em; }
+    .request-detail-head p { margin-top:4px; color:var(--text-soft); font-size:11px; }
+    .request-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:15px; }
+    .request-detail-stat { padding:10px; background:rgba(255,255,255,.035); border:1px solid var(--line); border-radius:11px; }
+    .request-detail-stat span, .request-detail-stat strong { display:block; }
+    .request-detail-stat span { color:var(--text-muted); font-size:9px; }
+    .request-detail-stat strong { margin-top:5px; color:var(--text); font-size:11px; overflow-wrap:anywhere; }
+    .request-detail-note { margin-top:12px; padding:11px; color:var(--text-soft); background:rgba(126,232,225,.06); border:1px solid rgba(126,232,225,.14); border-radius:11px; font-size:10px; line-height:1.5; }
+    .request-detail-note strong { color:var(--text); }
+    .request-detail-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; }
+    .request-detail-actions .btn-icon { flex:1; min-width:130px; }
+    .request-detail-upload { display:flex; align-items:center; gap:8px; margin-top:12px; padding:10px; color:var(--text-muted); background:rgba(255,255,255,.035); border:1px dashed var(--line-strong); border-radius:11px; font-size:10px; }
+    .request-detail-upload strong { display:block; color:var(--text-soft); font-size:11px; }
+    .request-detail-upload span:last-child { display:block; margin-top:3px; }
+    .request-detail-upload input { display:none; }
+    @media (max-width: 980px) { .request-layout { grid-template-columns: 1fr; } .request-detail { position: static; } }
+    @media (max-width: 680px) { .request-summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .request-detail-grid { grid-template-columns:1fr 1fr; } }
+    @media (prefers-reduced-motion: reduce) { .request-card { transition:none; } }
     .sub-divider { display: flex; align-items: center; gap: 10px; margin: 34px 0 16px; color: var(--text-muted); font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
     .sub-divider::before, .sub-divider::after { content: ''; height: 1px; flex: 1; background: var(--line); }
     .empty-state { grid-column: 1 / -1; padding: 54px 20px; color: var(--text-muted); text-align: center; }
@@ -401,6 +458,7 @@
 
         <div class="nav-label">Comunidade</div>
         <button class="admin-tab" data-tab="submissions"><span class="material-symbols-rounded">rate_review</span><span class="tab-label">Submissões</span><span class="nav-count" id="navMsgBadge"></span></button>
+        <button class="admin-tab" data-tab="requests"><span class="material-symbols-rounded">playlist_add_check</span><span class="tab-label">Solicitações</span><span class="nav-count visible" id="requestsNavCount">0</span></button>
         <button class="admin-tab" data-tab="messages"><span class="material-symbols-rounded">campaign</span><span class="tab-label">Notificações</span></button>
       </nav>
 
@@ -483,6 +541,13 @@
           <div id="subsList"></div>
         </section>
 
+        <section id="requestsTab" class="tab-pane">
+          <div class="section-header"><div class="section-title-wrap"><h2><span class="material-symbols-rounded">playlist_add_check</span>Solicitações de inclusão</h2><p class="section-sub">Pedidos criados pela busca dos usuários. Revise a origem, anexe um arquivo autorizado e publique somente após sua aprovação.</p></div><div class="section-actions"><span id="requestsCount" class="count-pill">0 abertas</span><button id="refreshRequestsBtn" class="btn-secondary"><span class="material-symbols-rounded">refresh</span>Atualizar</button></div></div>
+          <div class="request-summary-grid"><div class="request-summary-card"><strong id="requestTotalCount">0</strong><span>solicitações abertas</span></div><div class="request-summary-card"><strong id="requestPendingCount">0</strong><span>aguardando revisão</span></div><div class="request-summary-card"><strong id="requestApprovedCount">0</strong><span>prontas para publicar</span></div><div class="request-summary-card"><strong id="requestBlockedCount">0</strong><span>bloqueadas ou recusadas</span></div></div>
+          <div class="section-tools"><label class="search-field"><span class="material-symbols-rounded">search</span><input id="requestsSearchInput" type="search" placeholder="Buscar por título, artista ou solicitante" autocomplete="off"></label><select id="requestsFilterSelect" class="admin-filter" aria-label="Filtrar solicitações"><option value="all">Todos os status</option><option value="pending">Aguardando revisão</option><option value="reviewing">Em análise</option><option value="approved">Aprovadas</option><option value="rejected">Recusadas</option><option value="blocked">Bloqueadas</option><option value="published">Publicadas</option></select><span class="tool-note">Atalho: <b>R</b></span></div>
+          <div class="request-layout"><section class="request-queue"><div class="request-queue-head"><div><h3>Fila de solicitações</h3><p>Pedidos mais recentes primeiro.</p></div><span id="requestsLastUpdated" class="tool-note">—</span></div><div id="requestsList"><div class="privacy-loading">Carregando solicitações…</div></div></section><aside class="request-detail"><div class="request-detail-kicker">Detalhes da solicitação</div><div id="requestDetailEmpty" class="empty-state"><span class="material-symbols-rounded">touch_app</span><h3>Selecione uma solicitação</h3><p>Os dados de origem e as ações de revisão aparecem aqui.</p></div><div id="requestDetailContent" hidden><div class="request-detail-head"><div id="requestDetailArt" class="request-detail-art request-cover-ocean"><span class="material-symbols-rounded">music_note</span></div><div><h3 id="requestDetailTitle">—</h3><p id="requestDetailArtist">—</p></div></div><div class="request-detail-grid"><div class="request-detail-stat"><span>Origem da busca</span><strong id="requestDetailSource">—</strong></div><div class="request-detail-stat"><span>Álbum</span><strong id="requestDetailAlbum">—</strong></div><div class="request-detail-stat"><span>Áudio</span><strong id="requestDetailAudio">Ainda não enviado</strong></div><div class="request-detail-stat"><span>Status</span><strong id="requestDetailStatus">—</strong></div></div><div class="request-detail-note"><strong>Revisão segura</strong><br>O Fenda não baixa áudio automaticamente de plataformas externas. Para publicar, anexe um arquivo autorizado e confira os metadados.</div><label class="request-detail-upload"><span class="material-symbols-rounded">upload_file</span><span><strong>Anexar áudio autorizado</strong><span id="requestAudioFileName">Nenhum arquivo selecionado</span></span><input id="requestAudioInput" type="file" accept="audio/*"></label><div class="request-detail-actions"><button id="requestApproveBtn" class="btn-icon ok"><span class="material-symbols-rounded">fact_check</span>Marcar aprovada</button><button id="requestRejectBtn" class="btn-icon danger"><span class="material-symbols-rounded">block</span>Bloquear</button><button id="requestPublishBtn" class="btn-primary"><span class="material-symbols-rounded">publish</span>Publicar no catálogo</button></div></div></aside></div>
+        </section>
+
         <section id="messagesTab" class="tab-pane">
           <div class="section-header"><div class="section-title-wrap"><h2><span class="material-symbols-rounded">campaign</span>Notificações</h2><p class="section-sub">Envie comunicados aos usuários e gerencie o histórico de avisos do Fenda Music.</p></div><div class="section-actions"><button id="newMessageBtn" class="btn-primary"><span class="material-symbols-rounded">send</span>Novo aviso</button></div></div>
           <div class="section-tools"><label class="search-field"><span class="material-symbols-rounded">search</span><input id="messagesSearchInput" data-filter-target="messagesList" type="search" placeholder="Buscar por título, corpo ou tipo" autocomplete="off"></label><select id="messagesFilterSelect" class="admin-filter" aria-label="Filtrar notificações"><option value="all">Todas</option><option value="sent">Entregues</option><option value="new_music">Nova música</option><option value="new_artist">Novo artista</option><option value="announcement">Anúncio</option><option value="custom">Personalizada</option></select><span class="tool-note">Atalho: <b>N</b></span></div>
@@ -517,7 +582,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="music-analyzer.js?v=20260826-5"></script>
-  <script src="admin.js?v=20260827-2"></script>
+  <script src="admin-music-requests.js?v=music-requests-v2"></script>
+  <script src="admin.js?v=music-requests-v2"></script>
   <script src="admin-music-upload.js?v=20260827-2"></script>
   <script src="admin-messages.js?v=20260827-2"></script>
   <script src="admin-ui.js?v=20260827-2"></script>
