@@ -53,3 +53,13 @@ O commit `b8055a3` foi enviado ao repositório `isaacmottazt/Ad-fenda` e o deplo
 
 
 A validação em produção também confirmou o atalho `Ctrl/Cmd + K`: a paleta abriu imediatamente e a busca por `Oceano` encontrou o item do catálogo e o aviso de nova música na área de submissões e avisos.
+
+
+## Separação de submissões e notificações
+
+Na prévia local, a sidebar passou a mostrar dois destinos independentes: `Submissões` e `Notificações`. A tela de Submissões exibe apenas a fila de músicas, contador de pendências, busca por título/artista/remetente e atualização própria; o histórico de avisos não aparece nessa tela.
+
+
+## Validação da separação e exclusão
+
+Em produção, a aba `Notificações` ficou independente da aba `Submissões`. O histórico exibiu os avisos reais de nova música e testes anteriores, e cada card passou a apresentar o botão `Apagar`. Nenhuma mensagem foi excluída durante a validação, preservando o histórico existente.
