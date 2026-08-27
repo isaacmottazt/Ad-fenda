@@ -45,3 +45,11 @@ A busca global também foi testada com o termo `Oceano`: a paleta localizou a fa
 
 
 No modal de avisos, o template `Nova música disponível` foi selecionado e os campos `Oceano` e `Djavan` foram preenchidos. O corpo atualizou automaticamente para `Olá {user_name}! Uma nova música chegou: Oceano de Djavan`, sem envio real. Isso remove a etapa confusa de digitar manualmente o corpo obrigatório.
+
+
+## Publicação e validação em produção
+
+O commit `b8055a3` foi enviado ao repositório `isaacmottazt/Ad-fenda` e o deploy correspondente do projeto Vercel `ad-fenda` ficou em estado `READY` com alvo de produção. A URL real `https://ad-fenda.vercel.app/admin.html` serviu a nova sidebar e o dashboard; os indicadores carregaram 15 usuários, 310 músicas e 165 artistas. O console do navegador não apresentou saída de erro durante a validação.
+
+
+A validação em produção também confirmou o atalho `Ctrl/Cmd + K`: a paleta abriu imediatamente e a busca por `Oceano` encontrou o item do catálogo e o aviso de nova música na área de submissões e avisos.
