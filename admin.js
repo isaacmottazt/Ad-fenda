@@ -943,7 +943,7 @@ async function initAdmin() {
 
   const TAB_TITLES = {
     users: 'Usuários', privacy: 'Privacidade', musics: 'Músicas', artists: 'Artistas',
-    messages: 'Mensagens', podcasts: 'Podcasts',
+    submissions: 'Submissões', messages: 'Notificações', podcasts: 'Podcasts',
   };
   function switchTab(tabId) {
     panes.forEach(pane => pane.classList.remove('active'));

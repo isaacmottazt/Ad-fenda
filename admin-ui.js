@@ -8,13 +8,14 @@
     privacy: 'Privacidade',
     musics: 'Músicas',
     artists: 'Artistas',
-    messages: 'Submissões e avisos',
+    submissions: 'Submissões',
+    messages: 'Notificações',
     podcasts: 'Podcasts',
   };
 
   const TAB_ICONS = {
     overview: 'space_dashboard', users: 'group', privacy: 'privacy_tip',
-    musics: 'library_music', artists: 'mic', messages: 'inbox', podcasts: 'podcasts',
+    musics: 'library_music', artists: 'mic', submissions: 'rate_review', messages: 'campaign', podcasts: 'podcasts',
   };
 
   let paletteResults = [];
@@ -59,7 +60,7 @@
     setOverviewMetric('overviewPendingCount', pendingResponse.count ?? pending.length);
 
     pendingContainer.innerHTML = pending.length ? pending.map(item => `
-      <button class="activity-item" data-tab="messages" type="button">
+        <button class="activity-item" data-tab="submissions" type="button">
         <span class="activity-icon"><span class="material-symbols-rounded">music_note</span></span>
         <span class="activity-body"><strong>${escape(item.title || 'Sem título')}</strong><small>${escape(item.artist || 'Artista não informado')}</small></span>
         <span class="activity-status" style="color:var(--yellow)">pendente</span>
@@ -148,15 +149,9 @@
     if (!select) return;
     const mode = select.value || 'all';
     const query = String(document.getElementById('messagesSearchInput')?.value || '').trim().toLowerCase();
-    const submissions = document.querySelectorAll('#subsList .sub-card');
     const messages = document.querySelectorAll('#messagesList .msg-card');
-    submissions.forEach(card => {
-      const matchesMode = mode === 'all' || mode === 'pending' && card.dataset.submissionStatus === 'pending';
-      const matchesQuery = !query || card.textContent.toLowerCase().includes(query);
-      card.style.display = matchesMode && matchesQuery ? '' : 'none';
-    });
     messages.forEach(card => {
-      const matchesMode = mode === 'all' || mode === 'sent' && card.dataset.messageStatus === 'sent' || ['new_music', 'new_artist', 'announcement'].includes(mode) && card.dataset.messageType === mode;
+      const matchesMode = mode === 'all' || mode === 'sent' && card.dataset.messageStatus === 'sent' || ['new_music', 'new_artist', 'announcement', 'custom'].includes(mode) && card.dataset.messageType === mode;
       const matchesQuery = !query || card.textContent.toLowerCase().includes(query);
       card.style.display = matchesMode && matchesQuery ? '' : 'none';
     });
@@ -247,7 +242,8 @@
       privacy: window.loadPrivacyData,
       musics: window.loadMusics,
       artists: window.loadArtists,
-      messages: async () => { await window.loadSubmissions?.(); await window.loadMessages?.(); },
+      submissions: window.loadSubmissions,
+      messages: window.loadMessages,
       podcasts: window.loadPodcasts,
     };
   }

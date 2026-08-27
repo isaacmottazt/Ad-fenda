@@ -220,6 +220,8 @@
     .msg-card-title { overflow-wrap: anywhere; font-size: 13px; font-weight: 800; }
     .msg-card-text { display: -webkit-box; overflow: hidden; margin-top: 4px; color: var(--text-soft); font-size: 12px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
     .msg-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; color: var(--text-muted); font-size: 10px; }
+    .msg-card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    .msg-card-actions .btn-icon { min-height: 32px; }
     .msg-type-chip, .sub-status { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 99px; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
     .msg-type-chip { color: var(--violet); background: rgba(165,139,255,.12); }
     .sub-card { padding: 15px 16px; margin-bottom: 9px; }
@@ -398,7 +400,8 @@
         <button class="admin-tab" data-tab="podcasts"><span class="material-symbols-rounded">podcasts</span><span class="tab-label">Podcasts</span></button>
 
         <div class="nav-label">Comunidade</div>
-        <button class="admin-tab" data-tab="messages"><span class="material-symbols-rounded">inbox</span><span class="tab-label">Submissões e avisos</span><span class="nav-count" id="navMsgBadge"></span></button>
+        <button class="admin-tab" data-tab="submissions"><span class="material-symbols-rounded">rate_review</span><span class="tab-label">Submissões</span><span class="nav-count" id="navMsgBadge"></span></button>
+        <button class="admin-tab" data-tab="messages"><span class="material-symbols-rounded">campaign</span><span class="tab-label">Notificações</span></button>
       </nav>
 
       <div class="sidebar-footer">
@@ -442,10 +445,10 @@
 
           <div class="dashboard-grid">
             <section class="dashboard-panel"><div class="panel-heading"><div><h2>Atividade recente</h2><p>Últimos comunicados enviados pelo Admin</p></div><button class="panel-link" data-tab="messages">Ver todos</button></div><div id="overviewRecentList" class="activity-list"><div class="privacy-loading">Carregando atividade…</div></div></section>
-            <section class="dashboard-panel"><div class="panel-heading"><div><h2>Fila de revisão</h2><p>Envios que precisam de atenção</p></div><button class="panel-link" data-tab="messages">Abrir fila</button></div><div id="overviewPendingList" class="activity-list"><div class="privacy-loading">Carregando pendências…</div></div></section>
+            <section class="dashboard-panel"><div class="panel-heading"><div><h2>Fila de revisão</h2><p>Envios que precisam de atenção</p></div><button class="panel-link" data-tab="submissions">Abrir fila</button></div><div id="overviewPendingList" class="activity-list"><div class="privacy-loading">Carregando pendências…</div></div></section>
           </div>
 
-          <section class="dashboard-panel" style="margin-top:14px"><div class="panel-heading"><div><h2>Atalhos rápidos</h2><p>Ações frequentes sem procurar no menu</p></div><span class="mono" style="color:var(--text-muted);font-size:10px">Ctrl/Cmd + K</span></div><div class="shortcut-grid"><button class="shortcut-card" data-tab="users"><span class="material-symbols-rounded">group</span><span>Consultar usuários</span></button><button class="shortcut-card" data-tab="musics"><span class="material-symbols-rounded">library_music</span><span>Explorar catálogo</span></button><button class="shortcut-card" data-tab="privacy"><span class="material-symbols-rounded">shield</span><span>Revisar consentimentos</span></button><button class="shortcut-card" data-tab="podcasts"><span class="material-symbols-rounded">podcasts</span><span>Gerenciar podcasts</span></button></div></section>
+          <section class="dashboard-panel" style="margin-top:14px"><div class="panel-heading"><div><h2>Atalhos rápidos</h2><p>Ações frequentes sem procurar no menu</p></div><span class="mono" style="color:var(--text-muted);font-size:10px">Ctrl/Cmd + K</span></div><div class="shortcut-grid"><button class="shortcut-card" data-tab="users"><span class="material-symbols-rounded">group</span><span>Consultar usuários</span></button><button class="shortcut-card" data-tab="musics"><span class="material-symbols-rounded">library_music</span><span>Explorar catálogo</span></button><button class="shortcut-card" data-tab="privacy"><span class="material-symbols-rounded">shield</span><span>Revisar consentimentos</span></button><button class="shortcut-card" data-tab="submissions"><span class="material-symbols-rounded">rate_review</span><span>Revisar submissões</span></button><button class="shortcut-card" data-tab="podcasts"><span class="material-symbols-rounded">podcasts</span><span>Gerenciar podcasts</span></button></div></section>
         </section>
 
         <section id="usersTab" class="tab-pane">
@@ -474,11 +477,15 @@
           <div id="artistsList" class="card-grid"></div>
         </section>
 
-        <section id="messagesTab" class="tab-pane">
-          <div class="section-header"><div class="section-title-wrap"><h2><span class="material-symbols-rounded">inbox</span>Submissões e avisos</h2><p class="section-sub">Revise músicas enviadas pela comunidade e comunique novidades para os usuários.</p></div><div class="section-actions"><span id="subsCount" class="count-pill">0</span><button id="newMessageBtn" class="btn-primary"><span class="material-symbols-rounded">send</span>Novo aviso</button></div></div>
-          <div class="section-tools"><label class="search-field"><span class="material-symbols-rounded">search</span><input id="messagesSearchInput" data-filter-target="messagesTab" type="search" placeholder="Buscar em submissões e avisos" autocomplete="off"></label><select id="messagesFilterSelect" class="admin-filter" aria-label="Filtrar submissões e avisos"><option value="all">Tudo</option><option value="pending">Pendentes</option><option value="sent">Avisos enviados</option><option value="new_music">Nova música</option><option value="new_artist">Novo artista</option><option value="announcement">Anúncio</option></select><span class="tool-note">Atalho: <b>N</b> ou <b>S</b></span></div>
+        <section id="submissionsTab" class="tab-pane">
+          <div class="section-header"><div class="section-title-wrap"><h2><span class="material-symbols-rounded">rate_review</span>Submissões</h2><p class="section-sub">Revise músicas enviadas pela comunidade, publique as aprovadas ou recuse as que não atendem aos critérios.</p></div><div class="section-actions"><span id="subsCount" class="count-pill">0</span><button class="btn-secondary refresh-section" data-refresh="submissions"><span class="material-symbols-rounded">refresh</span>Atualizar</button></div></div>
+          <div class="section-tools"><label class="search-field"><span class="material-symbols-rounded">search</span><input id="submissionsSearchInput" data-filter-target="subsList" type="search" placeholder="Buscar por título, artista ou remetente" autocomplete="off"></label><span class="tool-note">Atalho: <b>S</b></span></div>
           <div id="subsList"></div>
-          <div class="sub-divider">Notificações enviadas</div>
+        </section>
+
+        <section id="messagesTab" class="tab-pane">
+          <div class="section-header"><div class="section-title-wrap"><h2><span class="material-symbols-rounded">campaign</span>Notificações</h2><p class="section-sub">Envie comunicados aos usuários e gerencie o histórico de avisos do Fenda Music.</p></div><div class="section-actions"><button id="newMessageBtn" class="btn-primary"><span class="material-symbols-rounded">send</span>Novo aviso</button></div></div>
+          <div class="section-tools"><label class="search-field"><span class="material-symbols-rounded">search</span><input id="messagesSearchInput" data-filter-target="messagesList" type="search" placeholder="Buscar por título, corpo ou tipo" autocomplete="off"></label><select id="messagesFilterSelect" class="admin-filter" aria-label="Filtrar notificações"><option value="all">Todas</option><option value="sent">Entregues</option><option value="new_music">Nova música</option><option value="new_artist">Novo artista</option><option value="announcement">Anúncio</option><option value="custom">Personalizada</option></select><span class="tool-note">Atalho: <b>N</b></span></div>
           <div id="messagesList"></div>
         </section>
 

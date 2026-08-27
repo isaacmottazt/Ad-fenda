@@ -421,9 +421,48 @@ async function loadMessages() {
           <span>${targetLabel}</span>
           <span>${statusLabel}</span>
         </div>
+        <div class="msg-card-actions">
+          <button type="button" class="btn-icon danger msg-delete" data-id="${escapeHtml(msg.id)}" data-title="${escapeHtml(msg.title)}">
+            <span class="material-symbols-rounded">delete</span> Apagar
+          </button>
+        </div>
       </div>
     `;
+    card.querySelector('.msg-delete')?.addEventListener('click', () => deleteAdminNotification(msg.id, msg.title, card));
     container.appendChild(card);
+  }
+}
+
+async function deleteAdminNotification(messageId, title, card) {
+  if (!messageId) return;
+  if (!confirm(`Apagar a notificação "${title || 'sem título'}"? Essa ação remove o aviso do histórico administrativo e da central dos usuários.`)) return;
+
+  const button = card?.querySelector('.msg-delete');
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<span class="material-symbols-rounded">progress_activity</span> Apagando…';
+  }
+
+  try {
+    const { data, error } = await supabaseClient.rpc('delete_admin_notification', {
+      p_notification_id: messageId,
+    });
+    if (error) throw error;
+    if (data !== true) {
+      showToast('Essa notificação já não está disponível.', 'error');
+      await loadMessages();
+      return;
+    }
+    showToast('Notificação apagada.', 'success');
+    await loadMessages();
+    window.AdminUI?.refreshOverview?.();
+  } catch (error) {
+    console.error('deleteAdminNotification:', error);
+    showToast(`Não foi possível apagar: ${error.message || error}`, 'error');
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = '<span class="material-symbols-rounded">delete</span> Apagar';
+    }
   }
 }
 
