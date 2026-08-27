@@ -63,3 +63,8 @@ Na prévia local, a sidebar passou a mostrar dois destinos independentes: `Submi
 ## Validação da separação e exclusão
 
 Em produção, a aba `Notificações` ficou independente da aba `Submissões`. O histórico exibiu os avisos reais de nova música e testes anteriores, e cada card passou a apresentar o botão `Apagar`. Nenhuma mensagem foi excluída durante a validação, preservando o histórico existente.
+
+
+## Login do Admin
+
+A nova tela de login administrativa foi validada localmente em viewport desktop. O modo Entrar exibe a identidade Fenda Admin Console, selo de acesso restrito, campos administrativos e atalho para recuperação de senha. O modo Criar conta foi testado e atualiza o cabeçalho para `Crie seu acesso`, exibindo nome, e-mail, senha e confirmação sem alterar os IDs usados pela autenticação.

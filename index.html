@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="description" content="Descubra novas músicas na Fenda Music">
-    <title>Fenda Music - Entrar ou Criar conta</title>
+    <meta name="description" content="Acesso seguro ao painel administrativo do Fenda Music">
+    <title>Fenda Admin · Acesso restrito</title>
 
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
     <link rel="stylesheet" href="login.css">
@@ -62,64 +62,49 @@
         // Se não houver sessão, fica na tela de login normalmente
     })();
 </script>
-    <div class="login-screen">
-        <div class="login-container">
-            <div class="login-header">
-                <h1>Fenda Music</h1>
-                <p>Sua música. Seu mundo.</p>
-            </div>
+    <main class="login-screen">
+        <section class="login-aside" aria-label="Informações do ambiente administrativo">
+            <div class="admin-brand"><span class="brand-mark"><span class="material-symbols-rounded">graphic_eq</span></span><div><strong>Fenda</strong><small>ADMIN CONSOLE</small></div></div>
+            <div class="aside-copy"><span class="aside-kicker">CENTRAL DE CONTROLE</span><h2>O som da comunidade começa <em>aqui.</em></h2><p>Gerencie o catálogo, revise submissões e mantenha cada experiência do Fenda Music em movimento.</p></div>
+            <div class="admin-status-card"><div class="status-card-top"><span class="status-dot"></span><span>Ambiente protegido</span><span class="material-symbols-rounded">shield</span></div><div class="status-lines"><span></span><span></span><span></span><span></span><span></span><span></span></div><div class="status-card-bottom"><strong>Admin workspace</strong><small>controles ativos · acesso auditado</small></div></div>
+            <div class="aside-footer"><span class="material-symbols-rounded">verified_user</span><span>Somente administradores autorizados</span></div>
+        </section>
+
+        <section class="login-container" aria-label="Acesso administrativo">
+            <div class="login-header"><div class="mobile-brand"><span class="brand-mark"><span class="material-symbols-rounded">graphic_eq</span></span><div><strong>Fenda</strong><small>ADMIN CONSOLE</small></div></div><span class="secure-badge"><span class="material-symbols-rounded">lock</span> acesso restrito</span></div>
+            <div class="auth-heading"><span class="auth-eyebrow">PAINEL ADMINISTRATIVO</span><h2 id="authHeading">Entre no seu workspace</h2><p id="authSubheading">Acesse as ferramentas de gestão do Fenda Music.</p></div>
 
             <!-- Botões de alternância -->
-            <div class="auth-toggle">
-                <button id="loginModeBtn" class="toggle-btn active">Entrar</button>
-                <button id="signupModeBtn" class="toggle-btn">Criar conta</button>
+            <div class="auth-toggle" role="tablist" aria-label="Escolha uma ação">
+                <button id="loginModeBtn" class="toggle-btn active" type="button" role="tab" aria-selected="true">Entrar</button>
+                <button id="signupModeBtn" class="toggle-btn" type="button" role="tab" aria-selected="false">Criar conta</button>
             </div>
 
             <!-- Formulário unificado -->
             <form id="authForm">
                 <!-- Campos que aparecem APENAS no modo cadastro -->
                 <div id="signupFields" class="dynamic-fields hidden">
-                    <div class="input-group">
-                        <input type="text" id="signupName" placeholder="Nome completo">
-                    </div>
-                    <div class="input-group">
-                        <input type="email" id="signupEmail" placeholder="E-mail">
-                    </div>
-                    <div class="input-group">
-                        <input type="password" id="signupPassword" placeholder="Senha (mínimo 6 caracteres)">
-                    </div>
-                    <div class="input-group">
-                        <input type="password" id="signupConfirmPassword" placeholder="Confirmar senha">
-                    </div>
+                    <div class="input-group"><label for="signupName">Nome completo</label><div class="input-shell"><span class="material-symbols-rounded field-icon">person</span><input type="text" id="signupName" placeholder="Como podemos chamar você?" autocomplete="name"></div></div>
+                    <div class="input-group"><label for="signupEmail">E-mail</label><div class="input-shell"><span class="material-symbols-rounded field-icon">mail</span><input type="email" id="signupEmail" placeholder="voce@exemplo.com" autocomplete="email"></div></div>
+                    <div class="input-group"><label for="signupPassword">Senha</label><div class="input-shell"><span class="material-symbols-rounded field-icon">lock</span><input type="password" id="signupPassword" placeholder="Mínimo de 6 caracteres" autocomplete="new-password"></div></div>
+                    <div class="input-group"><label for="signupConfirmPassword">Confirmar senha</label><div class="input-shell"><span class="material-symbols-rounded field-icon">lock_reset</span><input type="password" id="signupConfirmPassword" placeholder="Digite novamente" autocomplete="new-password"></div></div>
                 </div>
 
                 <!-- Campos que aparecem APENAS no modo login -->
                 <div id="loginFields" class="dynamic-fields">
-                    <div class="input-group">
-                        <input type="email" id="loginEmail" placeholder="E-mail">
-                    </div>
-                    <div class="input-group">
-                        <input type="password" id="loginPassword" placeholder="Senha">
-                    </div>
+                    <div class="input-group"><label for="loginEmail">E-mail administrativo</label><div class="input-shell"><span class="material-symbols-rounded field-icon">badge</span><input type="email" id="loginEmail" placeholder="voce@exemplo.com" autocomplete="username"></div></div>
+                    <div class="input-group"><label for="loginPassword">Senha</label><div class="input-shell"><span class="material-symbols-rounded field-icon">key</span><input type="password" id="loginPassword" placeholder="Digite sua senha" autocomplete="current-password"></div></div>
                 </div>
 
-                <div class="forgot-password" id="forgotPasswordContainer">
-                    <a href="#" id="forgotPasswordLink">Esqueceu sua senha?</a>
-                </div>
-
-                <button type="submit" id="submitBtn" class="login-btn">Entrar</button>
+                <div class="forgot-password" id="forgotPasswordContainer"><a href="#" id="forgotPasswordLink">Esqueceu sua senha?</a></div>
+                <button type="submit" id="submitBtn" class="login-btn">Entrar no Admin <span class="material-symbols-rounded">arrow_forward</span></button>
             </form>
 
-            <div class="divider">
-                <span>ou</span>
-            </div>
-
-            <button id="googleLoginBtn" class="google-btn">
-                <span class="material-symbols-rounded">account_circle</span>
-                Continuar com Google
-            </button>
-        </div>
-    </div>
+            <div class="divider"><span>ou continue com</span></div>
+            <button id="googleLoginBtn" class="google-btn" type="button"><span class="google-mark">G</span><span>Continuar com Google</span></button>
+            <p class="login-footnote"><span class="material-symbols-rounded">security</span> Toda entrada é validada antes de liberar o painel.</p>
+        </section>
+    </main>
 
     <!-- MODAL PARA REDEFINIR SENHA -->
     <div id="resetModal" class="modal-backdrop">
@@ -157,22 +142,32 @@
         const loginFields = document.getElementById('loginFields');
         const forgotContainer = document.getElementById('forgotPasswordContainer');
         const submitBtn = document.getElementById('submitBtn');
+        const authHeading = document.getElementById('authHeading');
+        const authSubheading = document.getElementById('authSubheading');
 
         function updateUIMode() {
             if (isLoginMode) {
                 signupFields.classList.add('hidden');
                 loginFields.classList.remove('hidden');
-                submitBtn.textContent = 'Entrar';
+                submitBtn.innerHTML = 'Entrar no Admin <span class="material-symbols-rounded">arrow_forward</span>';
+                if (authHeading) authHeading.textContent = 'Entre no seu workspace';
+                if (authSubheading) authSubheading.textContent = 'Acesse as ferramentas de gestão do Fenda Music.';
                 forgotContainer.style.display = 'block';
                 loginModeBtn.classList.add('active');
                 signupModeBtn.classList.remove('active');
+                loginModeBtn.setAttribute('aria-selected', 'true');
+                signupModeBtn.setAttribute('aria-selected', 'false');
             } else {
                 signupFields.classList.remove('hidden');
                 loginFields.classList.add('hidden');
-                submitBtn.textContent = 'Criar conta';
+                submitBtn.innerHTML = 'Criar conta <span class="material-symbols-rounded">arrow_forward</span>';
+                if (authHeading) authHeading.textContent = 'Crie seu acesso';
+                if (authSubheading) authSubheading.textContent = 'Cadastre uma conta para solicitar acesso administrativo.';
                 forgotContainer.style.display = 'none';
                 signupModeBtn.classList.add('active');
                 loginModeBtn.classList.remove('active');
+                signupModeBtn.setAttribute('aria-selected', 'true');
+                loginModeBtn.setAttribute('aria-selected', 'false');
             }
         }
 
