@@ -44,6 +44,24 @@ const messageTemplates = {
   }
 };
 
+async function sendAdminNotification({ title, body, type = 'custom', recipientIds = [], sendPush = true, musicId = null, imageUrl = null }) {
+  const metadata = {
+    template_type: type,
+    recipient_ids: Array.isArray(recipientIds) ? recipientIds.map(String) : [],
+    send_push: sendPush !== false,
+    ...(musicId ? { musicId: String(musicId) } : {}),
+  };
+  const { data, error } = await supabaseClient.rpc('create_admin_notification', {
+    p_title: title,
+    p_body: body,
+    p_deep_link: null,
+    p_image_url: /^https:\/\//i.test(imageUrl || '') ? imageUrl : null,
+    p_metadata: metadata,
+  });
+  if (error) throw error;
+  return data;
+}
+
 // ========== MODAL DE NOVA MENSAGEM ==========
 async function openNewMessageModal() {
   await loadUsersForMessages();
@@ -239,59 +257,40 @@ async function openNewMessageModal() {
     showToast("Enviando mensagens...");
 
     try {
-      // Inserir mensagens no banco
-      const messageRecord = {
-        admin_id: currentAdminUserId,
+      // O app lê admin_notifications; recipients e push ficam no metadata.
+      let linkedMusic = null;
+      if (type === 'new_music') {
+        const musicTitle = document.getElementById('musicTitle')?.value.trim() || '';
+        const musicArtist = document.getElementById('musicArtist')?.value.trim() || '';
+        const { data: match } = await supabaseClient
+          .from('musics')
+          .select('id, cover')
+          .ilike('title', musicTitle)
+          .ilike('artist', musicArtist)
+          .limit(1)
+          .maybeSingle();
+        linkedMusic = match || null;
+      }
+
+      const messageId = await sendAdminNotification({
         title,
-        body: finalBody,
-        template_type: type,
-        created_at: new Date()
-      };
+        body: finalBody.replaceAll('{user_name}', '').replace(/\s{2,}/g, ' ').trim(),
+        type,
+        recipientIds: recipients === 'specific' ? targetUsers : [],
+        sendPush,
+        musicId: linkedMusic?.id || null,
+        imageUrl: /^https:\/\//i.test(linkedMusic?.cover || '') ? linkedMusic.cover : null,
+      });
 
-      const { data: savedMessage, error: msgError } = await supabaseClient
-        .from('admin_messages')
-        .insert([messageRecord])
-        .select();
-
-      if (msgError) throw msgError;
-      const messageId = savedMessage[0].id;
-
-      // Criar registros de entrega
-      const deliveryRecords = targetUsers.map(userId => ({
-        message_id: messageId,
-        user_id: userId,
-        status: 'pending',
-        created_at: new Date()
-      }));
-
-      const { error: deliveryError } = await supabaseClient
-        .from('message_deliveries')
-        .insert(deliveryRecords);
-
-      if (deliveryError) throw deliveryError;
-
-      // Se ativado, disparar push (sem servidor por enquanto funciona via polling)
-      if (sendPush) {
-        console.log('[Mensagem] Push será entregue via polling');
-      }
-
-      // Dispara push server se configurado
-      if (PUSH_SERVER_URL && sendPush) {
-          fetch(`${PUSH_SERVER_URL}/trigger-push`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message_id: messageId }),
-          })
-          .then(r => r.json())
-          .then(r => console.log('[Push Server]', r))
-          .catch(e => console.warn('[Push Server] Offline ou erro:', e.message));
-      }
-
-      showToast(`Notificação enviada para ${targetUsers.length} usuário(s)!`, "success");
+      console.log('[Mensagem] Comunicado criado:', messageId);
+      const recipientLabel = recipients === 'all'
+        ? 'todos os usuários'
+        : `${targetUsers.length} usuário(s)`;
+      showToast(`Notificação enviada para ${recipientLabel}!`, "success");
       loadMessages();
       modal.classList.remove('active');
     } catch (e) {
-      showToast("Erro ao enviar: " + e.message, "error");
+      showToast("Erro ao enviar: " + (e.message || e), "error");
     }
   });
 }
@@ -321,45 +320,17 @@ async function sendNewArtistNotification(artistName, artistId) {
       return;
     }
 
-    // Pegar todos os usuários
-    const { data: allUsersData } = await supabaseClient
-      .from('profiles')
-      .select('id');
-
-    const userIds = allUsersData ? allUsersData.map(u => u.id) : [];
-    if (userIds.length === 0) return;
-
-    // Criar mensagem automática
     const title = 'Novo artista adicionado';
-    const body = `Oi {user_name}! Conhece ${artistName}? Temos ${musicCount} músicas deles`;
+    const body = `Conheça ${artistName}: agora temos ${musicCount} música(s) desse artista no Fenda Music.`;
+    const messageId = await sendAdminNotification({
+      title,
+      body,
+      type: 'new_artist',
+      recipientIds: [],
+      sendPush: true,
+    });
 
-    const { data: savedMessage, error: msgError } = await supabaseClient
-      .from('admin_messages')
-      .insert([{
-        admin_id: currentAdminUserId,
-        title,
-        body,
-        template_type: 'new_artist',
-        created_at: new Date()
-      }])
-      .select();
-
-    if (msgError) throw msgError;
-    const messageId = savedMessage[0].id;
-
-    // Criar registros de entrega
-    const deliveryRecords = userIds.map(userId => ({
-      message_id: messageId,
-      user_id: userId,
-      status: 'pending',
-      created_at: new Date()
-    }));
-
-    await supabaseClient
-      .from('message_deliveries')
-      .insert(deliveryRecords);
-
-    console.log('[Auto] ✅ Notificação enviada para', userIds.length, 'usuários');
+    console.log('[Auto] ✅ Comunicado criado para todos os usuários:', messageId);
   } catch (e) {
     console.error('[Auto] Erro ao enviar notificação automática:', e);
   }
@@ -368,8 +339,8 @@ async function sendNewArtistNotification(artistName, artistId) {
 // ========== CARREGAR E LISTAR MENSAGENS ENVIADAS ==========
 async function loadMessages() {
   const { data, error } = await supabaseClient
-    .from('admin_messages')
-    .select('*')
+    .from('admin_notifications')
+    .select('id, title, body, target, status, created_at, dispatched_at, metadata')
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -388,17 +359,6 @@ async function loadMessages() {
     return;
   }
 
-  // Contagem de entregas em UMA query (não uma por mensagem)
-  const counts = {};
-  try {
-    const ids = data.map(m => m.id);
-    const { data: dels } = await supabaseClient
-      .from('message_deliveries')
-      .select('message_id')
-      .in('message_id', ids);
-    (dels || []).forEach(d => { counts[d.message_id] = (counts[d.message_id] || 0) + 1; });
-  } catch (e) { /* contagem é cosmética */ }
-
   const typeMeta = {
     new_music:    { icon: 'music_note', label: 'Nova música' },
     new_artist:   { icon: 'mic',        label: 'Novo artista' },
@@ -407,10 +367,14 @@ async function loadMessages() {
   };
 
   for (const msg of data) {
-    const meta = typeMeta[msg.template_type] || typeMeta.custom;
+    const meta = typeMeta[msg.metadata?.template_type] || typeMeta.custom;
     const d = new Date(msg.created_at);
     const dateStr = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    const n = counts[msg.id];
+    const recipientIds = Array.isArray(msg.metadata?.recipient_ids) ? msg.metadata.recipient_ids : [];
+    const targetLabel = msg.target === 'all'
+      ? 'todos os usuários'
+      : `${recipientIds.length} usuário(s)`;
+    const statusLabel = msg.status === 'sent' ? 'entregue' : (msg.status || 'pendente');
 
     const card = document.createElement('div');
     card.className = 'msg-card';
@@ -422,7 +386,8 @@ async function loadMessages() {
         <div class="msg-card-meta">
           <span class="msg-type-chip">${meta.label}</span>
           <span>${dateStr}</span>
-          ${n ? `<span>${n} destinatário${n > 1 ? 's' : ''}</span>` : ''}
+          <span>${targetLabel}</span>
+          <span>${statusLabel}</span>
         </div>
       </div>
     `;
