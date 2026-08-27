@@ -121,13 +121,18 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .aside-copy h2 em { color: var(--admin-cyan); font-style: normal; }
 .aside-copy p { max-width: 405px; margin: 0; color: rgba(216, 228, 244, .7); font-size: 13px; line-height: 1.65; }
 
-.admin-status-card { width: min(100%, 395px); padding: 16px 17px 15px; border: 1px solid rgba(126, 232, 225, .16); border-radius: 17px; background: rgba(5, 15, 28, .48); box-shadow: 0 18px 34px rgba(0, 0, 0, .16); backdrop-filter: blur(12px); }
+.admin-status-card { position: relative; width: min(100%, 395px); padding: 16px 17px 15px; border: 1px solid rgba(126, 232, 225, .16); border-radius: 17px; background: rgba(5, 15, 28, .48); box-shadow: 0 18px 34px rgba(0, 0, 0, .16); backdrop-filter: blur(12px); animation: workspaceFloat 6s ease-in-out infinite; overflow: hidden; }
+.admin-status-card::after { content: ''; position: absolute; top: 0; left: -35%; width: 24%; height: 1px; background: linear-gradient(90deg, transparent, rgba(126, 232, 225, .8), transparent); box-shadow: 0 0 18px rgba(126, 232, 225, .7); animation: statusSweep 4.8s ease-in-out infinite; pointer-events: none; }
 .status-card-top { display: flex; align-items: center; gap: 7px; color: var(--admin-muted-strong); font-size: 10px; font-weight: 800; }
 .status-card-top .material-symbols-rounded { margin-left: auto; color: var(--admin-cyan); font-size: 17px; }
-.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--admin-cyan); box-shadow: 0 0 0 5px rgba(126,232,225,.09), 0 0 16px rgba(126,232,225,.75); }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--admin-cyan); box-shadow: 0 0 0 5px rgba(126,232,225,.09), 0 0 16px rgba(126,232,225,.75); animation: statusPulse 2.6s ease-in-out infinite; }
 .status-lines { display: grid; grid-template-columns: repeat(6, 1fr); align-items: end; gap: 7px; height: 57px; padding: 13px 0 9px; }
-.status-lines span { display: block; min-height: 13px; border-radius: 99px 99px 4px 4px; background: linear-gradient(to top, rgba(126, 232, 225, .18), rgba(126, 232, 225, .72)); }
-.status-lines span:nth-child(1) { height: 28%; opacity: .65; } .status-lines span:nth-child(2) { height: 48%; } .status-lines span:nth-child(3) { height: 74%; } .status-lines span:nth-child(4) { height: 55%; opacity: .8; } .status-lines span:nth-child(5) { height: 93%; } .status-lines span:nth-child(6) { height: 68%; opacity: .86; }
+.status-lines span { display: block; min-height: 13px; border-radius: 99px 99px 4px 4px; background: linear-gradient(to top, rgba(126, 232, 225, .18), rgba(126, 232, 225, .72)); transform-origin: bottom; animation: barPulse 2.4s ease-in-out infinite; }
+.status-lines span:nth-child(1) { height: 28%; opacity: .65; animation-delay: -.8s; } .status-lines span:nth-child(2) { height: 48%; animation-delay: -.35s; } .status-lines span:nth-child(3) { height: 74%; animation-delay: -.05s; } .status-lines span:nth-child(4) { height: 55%; opacity: .8; animation-delay: -.6s; } .status-lines span:nth-child(5) { height: 93%; animation-delay: -.18s; } .status-lines span:nth-child(6) { height: 68%; opacity: .86; animation-delay: -.48s; }
+@keyframes workspaceFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes statusSweep { 0%, 15% { left: -35%; opacity: 0; } 35%, 68% { left: 112%; opacity: 1; } 84%, 100% { left: 112%; opacity: 0; } }
+@keyframes statusPulse { 0%, 100% { opacity: .72; box-shadow: 0 0 0 5px rgba(126,232,225,.08), 0 0 12px rgba(126,232,225,.55); } 50% { opacity: 1; box-shadow: 0 0 0 8px rgba(126,232,225,.03), 0 0 22px rgba(126,232,225,.95); } }
+@keyframes barPulse { 0%, 100% { transform: scaleY(.78); filter: saturate(.8); } 50% { transform: scaleY(1); filter: saturate(1.15); } }
 .status-card-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid rgba(184, 208, 240, .1); }
 .status-card-bottom strong { color: var(--admin-text); font-size: 11px; }
 .status-card-bottom small { color: var(--admin-muted); font-size: 9px; text-align: right; }
@@ -146,6 +151,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .auth-heading h2 { margin: 9px 0 7px; color: var(--admin-text); font-size: clamp(24px, 3vw, 30px); line-height: 1.05; letter-spacing: -.055em; }
 .auth-heading p { margin: 0; color: var(--admin-muted); font-size: 12px; line-height: 1.55; }
 
+.access-pill { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 7px; width: fit-content; padding: 7px 10px; margin: 0 0 23px; color: var(--admin-cyan); border: 1px solid rgba(126,232,225,.16); border-radius: 999px; background: rgba(126,232,225,.055); font-size: 10px; font-weight: 900; letter-spacing: .03em; }
+.access-pill .material-symbols-rounded { font-size: 15px; }
 .auth-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 24px; border: 1px solid rgba(184, 208, 240, .1); border-radius: 14px; background: rgba(255,255,255,.035); }
 .toggle-btn { min-height: 39px; padding: 8px 10px; color: var(--admin-muted); border: 0; border-radius: 10px; background: transparent; cursor: pointer; font-size: 12px; font-weight: 900; transition: color .2s var(--admin-ease), background .2s var(--admin-ease), box-shadow .2s var(--admin-ease); }
 .toggle-btn:hover { color: var(--admin-text); background: rgba(255,255,255,.05); }

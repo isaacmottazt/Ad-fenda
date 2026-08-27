@@ -74,23 +74,10 @@
             <div class="login-header"><div class="mobile-brand"><span class="brand-mark"><span class="material-symbols-rounded">graphic_eq</span></span><div><strong>Fenda</strong><small>ADMIN CONSOLE</small></div></div><span class="secure-badge"><span class="material-symbols-rounded">lock</span> acesso restrito</span></div>
             <div class="auth-heading"><span class="auth-eyebrow">PAINEL ADMINISTRATIVO</span><h2 id="authHeading">Entre no seu workspace</h2><p id="authSubheading">Acesse as ferramentas de gestão do Fenda Music.</p></div>
 
-            <!-- Botões de alternância -->
-            <div class="auth-toggle" role="tablist" aria-label="Escolha uma ação">
-                <button id="loginModeBtn" class="toggle-btn active" type="button" role="tab" aria-selected="true">Entrar</button>
-                <button id="signupModeBtn" class="toggle-btn" type="button" role="tab" aria-selected="false">Criar conta</button>
-            </div>
+            <div class="access-pill"><span class="material-symbols-rounded">admin_panel_settings</span><span>Acesso de administrador</span></div>
 
-            <!-- Formulário unificado -->
             <form id="authForm">
-                <!-- Campos que aparecem APENAS no modo cadastro -->
-                <div id="signupFields" class="dynamic-fields hidden">
-                    <div class="input-group"><label for="signupName">Nome completo</label><div class="input-shell"><span class="material-symbols-rounded field-icon">person</span><input type="text" id="signupName" placeholder="Como podemos chamar você?" autocomplete="name"></div></div>
-                    <div class="input-group"><label for="signupEmail">E-mail</label><div class="input-shell"><span class="material-symbols-rounded field-icon">mail</span><input type="email" id="signupEmail" placeholder="voce@exemplo.com" autocomplete="email"></div></div>
-                    <div class="input-group"><label for="signupPassword">Senha</label><div class="input-shell"><span class="material-symbols-rounded field-icon">lock</span><input type="password" id="signupPassword" placeholder="Mínimo de 6 caracteres" autocomplete="new-password"></div></div>
-                    <div class="input-group"><label for="signupConfirmPassword">Confirmar senha</label><div class="input-shell"><span class="material-symbols-rounded field-icon">lock_reset</span><input type="password" id="signupConfirmPassword" placeholder="Digite novamente" autocomplete="new-password"></div></div>
-                </div>
-
-                <!-- Campos que aparecem APENAS no modo login -->
+                <!-- Campos do acesso administrativo -->
                 <div id="loginFields" class="dynamic-fields">
                     <div class="input-group"><label for="loginEmail">E-mail administrativo</label><div class="input-shell"><span class="material-symbols-rounded field-icon">badge</span><input type="email" id="loginEmail" placeholder="voce@exemplo.com" autocomplete="username"></div></div>
                     <div class="input-group"><label for="loginPassword">Senha</label><div class="input-shell"><span class="material-symbols-rounded field-icon">key</span><input type="password" id="loginPassword" placeholder="Digite sua senha" autocomplete="current-password"></div></div>
@@ -100,7 +87,7 @@
                 <button type="submit" id="submitBtn" class="login-btn">Entrar no Admin <span class="material-symbols-rounded">arrow_forward</span></button>
             </form>
 
-            <div class="divider"><span>ou continue com</span></div>
+            <div class="divider"><span>acesso alternativo</span></div>
             <button id="googleLoginBtn" class="google-btn" type="button"><span class="google-mark">G</span><span>Continuar com Google</span></button>
             <p class="login-footnote"><span class="material-symbols-rounded">security</span> Toda entrada é validada antes de liberar o painel.</p>
         </section>
@@ -134,52 +121,18 @@
             setTimeout(() => toast.remove(), 5000);
         }
 
-        // --- Controle de modo (login / cadastro) ---
-        let isLoginMode = true;
-        const loginModeBtn = document.getElementById('loginModeBtn');
-        const signupModeBtn = document.getElementById('signupModeBtn');
-        const signupFields = document.getElementById('signupFields');
+        // --- Acesso administrativo único ---
         const loginFields = document.getElementById('loginFields');
         const forgotContainer = document.getElementById('forgotPasswordContainer');
         const submitBtn = document.getElementById('submitBtn');
         const authHeading = document.getElementById('authHeading');
         const authSubheading = document.getElementById('authSubheading');
 
-        function updateUIMode() {
-            if (isLoginMode) {
-                signupFields.classList.add('hidden');
-                loginFields.classList.remove('hidden');
-                submitBtn.innerHTML = 'Entrar no Admin <span class="material-symbols-rounded">arrow_forward</span>';
-                if (authHeading) authHeading.textContent = 'Entre no seu workspace';
-                if (authSubheading) authSubheading.textContent = 'Acesse as ferramentas de gestão do Fenda Music.';
-                forgotContainer.style.display = 'block';
-                loginModeBtn.classList.add('active');
-                signupModeBtn.classList.remove('active');
-                loginModeBtn.setAttribute('aria-selected', 'true');
-                signupModeBtn.setAttribute('aria-selected', 'false');
-            } else {
-                signupFields.classList.remove('hidden');
-                loginFields.classList.add('hidden');
-                submitBtn.innerHTML = 'Criar conta <span class="material-symbols-rounded">arrow_forward</span>';
-                if (authHeading) authHeading.textContent = 'Crie seu acesso';
-                if (authSubheading) authSubheading.textContent = 'Cadastre uma conta para solicitar acesso administrativo.';
-                forgotContainer.style.display = 'none';
-                signupModeBtn.classList.add('active');
-                loginModeBtn.classList.remove('active');
-                signupModeBtn.setAttribute('aria-selected', 'true');
-                loginModeBtn.setAttribute('aria-selected', 'false');
-            }
-        }
-
-        loginModeBtn.addEventListener('click', () => {
-            isLoginMode = true;
-            updateUIMode();
-        });
-        signupModeBtn.addEventListener('click', () => {
-            isLoginMode = false;
-            updateUIMode();
-        });
-        updateUIMode();
+        loginFields.classList.remove('hidden');
+        forgotContainer.style.display = 'block';
+        submitBtn.innerHTML = 'Entrar no Admin <span class="material-symbols-rounded">arrow_forward</span>';
+        if (authHeading) authHeading.textContent = 'Entre no seu workspace';
+        if (authSubheading) authSubheading.textContent = 'Acesse as ferramentas de gestão do Fenda Music.';
 
         // --- Login com Google ---
         document.getElementById('googleLoginBtn').addEventListener('click', async () => {
@@ -194,84 +147,29 @@
         const authForm = document.getElementById('authForm');
         authForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            if (isLoginMode) {
-                // LOGIN
-                const email = document.getElementById('loginEmail').value.trim();
-                const password = document.getElementById('loginPassword').value.trim();
-                if (!email || !password) {
-                    showToast('Preencha todos os campos', 'danger');
-                    return;
-                }
-                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-                if (error) {
-                    showToast(error.message, 'danger');
-                    return;
-                }
-                if (data.user && data.user.email_confirmed_at) {
-                    const { data: profile } = await supabaseClient
-                        .from('profiles')
-                        .select('full_name')
-                        .eq('id', data.user.id)
-                        .single();
-                    localStorage.setItem('user_name', profile?.full_name || email.split('@')[0]);
-                    localStorage.setItem('user_email', email);
-                    window.location.href = 'admin.html';
-                } else {
-                    showToast('Por favor, verifique seu e-mail antes de fazer login.', 'warning');
-                    await supabaseClient.auth.signOut();
-                }
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            if (!email || !password) {
+                showToast('Preencha todos os campos', 'danger');
+                return;
+            }
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) {
+                showToast(error.message, 'danger');
+                return;
+            }
+            if (data.user && data.user.email_confirmed_at) {
+                const { data: profile } = await supabaseClient
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', data.user.id)
+                    .single();
+                localStorage.setItem('user_name', profile?.full_name || email.split('@')[0]);
+                localStorage.setItem('user_email', email);
+                window.location.href = 'admin.html';
             } else {
-                // CADASTRO
-                const name = document.getElementById('signupName').value.trim();
-                const email = document.getElementById('signupEmail').value.trim();
-                const password = document.getElementById('signupPassword').value.trim();
-                const confirm = document.getElementById('signupConfirmPassword').value.trim();
-
-                if (!name || !email || !password || !confirm) {
-                    showToast('Preencha todos os campos', 'danger');
-                    return;
-                }
-                if (password.length < 6) {
-                    showToast('A senha deve ter no mínimo 6 caracteres.', 'danger');
-                    return;
-                }
-                if (password !== confirm) {
-                    showToast('As senhas não coincidem.', 'danger');
-                    return;
-                }
-
-                const { data, error } = await supabaseClient.auth.signUp({
-                    email,
-                    password,
-                    options: { data: { full_name: name } }
-                });
-                if (error) {
-                    showToast(error.message, 'danger');
-                    return;
-                }
-                if (data.user) {
-                    // Tenta criar perfil (se falhar, não interrompe)
-                    await supabaseClient
-                        .from('profiles')
-                        .insert([{ id: data.user.id, full_name: name, email: email }])
-                        .catch(e => console.warn('Erro ao criar perfil:', e));
-                    
-                    // Mensagem de sucesso em português
-                    showToast('✅ Cadastro realizado! Enviamos um e‑mail de confirmação. Verifique sua caixa de entrada.', 'success');
-                    
-                    // Limpa os campos do cadastro
-                    document.getElementById('signupName').value = '';
-                    document.getElementById('signupEmail').value = '';
-                    document.getElementById('signupPassword').value = '';
-                    document.getElementById('signupConfirmPassword').value = '';
-                    
-                    // Volta para o modo "Entrar" e limpa os campos de login
-                    isLoginMode = true;
-                    updateUIMode();
-                    document.getElementById('loginEmail').value = '';
-                    document.getElementById('loginPassword').value = '';
-                }
+                showToast('Por favor, verifique seu e-mail antes de fazer login.', 'warning');
+                await supabaseClient.auth.signOut();
             }
         });
 

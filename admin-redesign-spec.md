@@ -68,3 +68,8 @@ Em produção, a aba `Notificações` ficou independente da aba `Submissões`. O
 ## Login do Admin
 
 A nova tela de login administrativa foi validada localmente em viewport desktop. O modo Entrar exibe a identidade Fenda Admin Console, selo de acesso restrito, campos administrativos e atalho para recuperação de senha. O modo Criar conta foi testado e atualiza o cabeçalho para `Crie seu acesso`, exibindo nome, e-mail, senha e confirmação sem alterar os IDs usados pela autenticação.
+
+
+## Acesso administrativo e animação
+
+A opção `Criar conta` foi removida do login do Admin, junto com os campos e handlers de cadastro. A tela agora oferece somente login por e-mail e senha, recuperação de senha e Google. O cartão `Ambiente protegido` recebeu flutuação suave, pulso do indicador de segurança, barras com variação de escala e uma linha de brilho que percorre o card. A animação respeita `prefers-reduced-motion`.
