@@ -126,7 +126,7 @@ async function loadUsers() {
       <h3>${escapeHtml(user.full_name || 'Sem nome')}</h3>
       <p><strong>E-mail:</strong> <span style="color:rgba(255,255,255,0.7);">${escapeHtml(user.email)}</span></p>
       <div style="display: flex; gap: 8px; margin-top: 16px;">
-        <button class="btn-icon danger delete-user" data-id="${user.id}" data-name="${escapeHtml(user.full_name || 'Usuário')}">
+        <button class="btn-icon danger delete-user" data-id="${escapeAttr(user.id)}" data-name="${escapeAttr(user.full_name || 'Usuário')}">
           <span class="material-symbols-rounded">delete</span> Excluir
         </button>
       </div>
@@ -579,18 +579,18 @@ function openEditMusicModal(data) {
   let onlineStyleSource = null;
   document.getElementById('modalTitle').innerText = "Editar música";
   document.getElementById('modalBody').innerHTML = `
-    <div class="form-group"><label>Título</label><input type="text" id="musicTitle" value="${data.title}"></div>
-    <div class="form-group"><label>Artista</label><input type="text" id="musicArtist" value="${data.artist}"></div>
+    <div class="form-group"><label>Título</label><input type="text" id="musicTitle" value="${escapeAttr(data.title || '')}"></div>
+    <div class="form-group"><label>Artista</label><input type="text" id="musicArtist" value="${escapeAttr(data.artist || '')}"></div>
     <div style="display: flex; gap: 10px; margin-bottom: 16px;">
       <button type="button" id="autoFetchCoverEditBtn" class="btn-primary" style="flex:1;">🎨 Buscar capa</button>
       <button type="button" id="autoFetchLyricsEditBtn" class="btn-primary" style="flex:1;">📝 Buscar letra</button>
     </div>
-    <div class="form-group"><label>URL da capa</label><input type="text" id="musicCoverUrl" value="${data.cover || ''}"></div>
-    <div class="form-group"><label>Letra sincronizada (.lrc)</label><input type="text" id="musicLrc" value="${data.lrc || ''}" placeholder="URL do arquivo .lrc"></div>
+    <div class="form-group"><label>URL da capa</label><input type="text" id="musicCoverUrl" value="${escapeAttr(data.cover || '')}"></div>
+    <div class="form-group"><label>Letra sincronizada (.lrc)</label><input type="text" id="musicLrc" value="${escapeAttr(data.lrc || '')}" placeholder="URL do arquivo .lrc"></div>
     <div class="form-group"><label>Gênero</label>
-      <input type="text" id="musicGenre" list="adminGenreOptions" value="${escapeHtml(data.genre || '')}" placeholder="Digite o gênero: Gospel, MPB, sertanejo…">
+      <input type="text" id="musicGenre" list="adminGenreOptions" value="${escapeAttr(data.genre || '')}" placeholder="Digite o gênero: Gospel, MPB, sertanejo…">
       <datalist id="adminGenreOptions">
-        ${['Gospel','Adoração','Louvores','Contemporâneo','Rock Cristão','MPB','Pop','Rock','Sertanejo','Pagode','Samba','Funk','Forró','Eletrônica','Jazz','Clássico','Reggae','Hip-Hop','Trap','R&B'].map(g => `<option value="${g}">`).join('')}
+        ${['Gospel','Adoração','Louvores','Contemporâneo','Rock Cristão','MPB','Pop','Rock','Sertanejo','Pagode','Samba','Funk','Forró','Eletrônica','Jazz','Clássico','Reggae','Hip-Hop','Trap','R&B'].map(g => `<option value="${escapeAttr(g)}">`).join('')}
       </datalist>
       <div style="display:flex; gap:8px; margin-top:8px;">
         <button type="button" id="searchGenreOnlineBtn" class="btn-icon" style="flex:1; justify-content:center;">Pesquisar gênero</button>
@@ -613,19 +613,19 @@ function openEditMusicModal(data) {
     </div>
     <div class="form-group"><label>Estilo da música</label>
       <div style="display:flex; gap:8px; align-items:stretch;">
-        <input type="text" id="musicStyle" list="adminStyleOptions" value="${data.style || data.styleTags || ''}" placeholder="Digite livremente: Soul, worship, acústico…" style="flex:1; min-width:0;">
+        <input type="text" id="musicStyle" list="adminStyleOptions" value="${escapeAttr(data.style || data.styleTags || '')}" placeholder="Digite livremente: Soul, worship, acústico…" style="flex:1; min-width:0;">
         <button type="button" id="searchStyleOnlineBtn" class="btn-icon" style="white-space:nowrap;">Buscar sugestões</button>
       </div>
       <small style="display:block; margin-top:6px; color:rgba(255,255,255,.58);">Você pode escrever um estilo próprio ou separar vários por vírgula. A busca automática é opcional.</small>
       <div id="styleSearchResults" style="margin-top:8px;"></div>
     </div>
-    <div class="form-group"><label>Ritmo detectado</label><input type="text" id="musicRhythmProfile" value="${data.rhythmProfile || ''}" placeholder="lento, moderado, rápido"></div>
+    <div class="form-group"><label>Ritmo detectado</label><input type="text" id="musicRhythmProfile" value="${escapeAttr(data.rhythmProfile || '')}" placeholder="lento, moderado, rápido"></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-      <div class="form-group"><label>BPM</label><input type="number" id="musicTempoBpm" min="30" max="240" step="0.1" value="${data.tempoBpm || ''}"></div>
-      <div class="form-group"><label>Energia</label><input type="number" id="musicEnergy" min="0" max="1" step="0.01" value="${data.energy || ''}"></div>
-      <div class="form-group"><label>Dança</label><input type="number" id="musicDanceability" min="0" max="1" step="0.01" value="${data.danceability || ''}"></div>
+      <div class="form-group"><label>BPM</label><input type="number" id="musicTempoBpm" min="30" max="240" step="0.1" value="${escapeAttr(data.tempoBpm || '')}"></div>
+      <div class="form-group"><label>Energia</label><input type="number" id="musicEnergy" min="0" max="1" step="0.01" value="${escapeAttr(data.energy || '')}"></div>
+      <div class="form-group"><label>Dança</label><input type="number" id="musicDanceability" min="0" max="1" step="0.01" value="${escapeAttr(data.danceability || '')}"></div>
     </div>
-    <datalist id="adminStyleOptions">${(window.FendaMusicAnalyzer?.styles || []).map(s => `<option value="${escapeHtml(s)}">`).join('')}</datalist>
+    <datalist id="adminStyleOptions">${(window.FendaMusicAnalyzer?.styles || []).map(s => `<option value="${escapeAttr(s)}">`).join('')}</datalist>
   `;
   const modal = document.getElementById('genericModal');
   modal.classList.add('active');
@@ -880,13 +880,13 @@ async function loadArtists() {
     card.className = 'admin-card';
     card.innerHTML = `
       <h3>${escapeHtml(artist.name)}</h3>
-      ${artist.avatar ? `<img src="${artist.avatar}" alt="Avatar">` : ''}
+      ${artist.avatar ? `<img src="${escapeAttr(artist.avatar)}" alt="Avatar">` : ''}
       <p><strong>Bio:</strong> ${escapeHtml(artist.bio || '—')}</p>
       <div style="display: flex; gap: 8px; margin-top: 12px;">
-        <button class="btn-icon edit-artist" data-id="${artist.id}" data-name="${escapeHtml(artist.name)}" data-bio="${escapeHtml(artist.bio || '')}" data-avatar="${artist.avatar || ''}">
+        <button class="btn-icon edit-artist" data-id="${escapeAttr(artist.id)}" data-name="${escapeAttr(artist.name)}" data-bio="${escapeAttr(artist.bio || '')}" data-avatar="${escapeAttr(artist.avatar || '')}">
           <span class="material-symbols-rounded">edit</span> Editar
         </button>
-        <button class="btn-icon danger delete-artist" data-id="${artist.id}" data-name="${escapeHtml(artist.name)}">
+        <button class="btn-icon danger delete-artist" data-id="${escapeAttr(artist.id)}" data-name="${escapeAttr(artist.name)}">
           <span class="material-symbols-rounded">delete</span> Excluir
         </button>
       </div>
@@ -934,9 +934,9 @@ function openNewArtistModal() {
 function openEditArtistModal(data) {
   document.getElementById('modalTitle').innerText = "Editar artista";
   document.getElementById('modalBody').innerHTML = `
-    <div class="form-group"><label>Nome</label><input type="text" id="artistName" value="${data.name}"></div>
-    <div class="form-group"><label>Bio</label><textarea id="artistBio">${data.bio}</textarea></div>
-    <div class="form-group"><label>Avatar (URL)</label><input type="text" id="artistAvatar" value="${data.avatar}"></div>
+    <div class="form-group"><label>Nome</label><input type="text" id="artistName" value="${escapeAttr(data.name || '')}"></div>
+    <div class="form-group"><label>Bio</label><textarea id="artistBio">${escapeHtml(data.bio || '')}</textarea></div>
+    <div class="form-group"><label>Avatar (URL)</label><input type="text" id="artistAvatar" value="${escapeAttr(data.avatar || '')}"></div>
   `;
   const modal = document.getElementById('genericModal');
   modal.classList.add('active');
@@ -1028,15 +1028,15 @@ async function loadPodcasts() {
     card.className = 'admin-card';
     card.innerHTML = `
       <h3>${escapeHtml(pod.title)}</h3>
-      ${pod.cover_url ? `<img src="${escapeHtml(pod.cover_url)}" alt="Capa">` : ''}
+      ${pod.cover_url ? `<img src="${escapeAttr(pod.cover_url)}" alt="Capa">` : ''}
       <p>${escapeHtml(pod.description || '')}</p>
-      ${pod.audio_url ? `<audio controls preload="none" src="${escapeHtml(pod.audio_url)}" style="width:100%; margin:10px 0 12px;"></audio>` : ''}
+      ${pod.audio_url ? `<audio controls preload="none" src="${escapeAttr(pod.audio_url)}" style="width:100%; margin:10px 0 12px;"></audio>` : ''}
       <small style="display:block;color:var(--text-faint);margin-bottom:10px;">Publicado em ${pod.created_at ? new Date(pod.created_at).toLocaleDateString('pt-BR') : '—'}</small>
       <div style="display: flex; gap: 8px; flex-wrap:wrap;">
-        <button class="btn-icon edit-podcast" data-id="${pod.id}" data-title="${escapeHtml(pod.title)}" data-desc="${escapeHtml(pod.description || '')}" data-cover="${pod.cover_url || ''}" data-audio="${pod.audio_url}">
+        <button class="btn-icon edit-podcast" data-id="${escapeAttr(pod.id)}" data-title="${escapeAttr(pod.title)}" data-desc="${escapeAttr(pod.description || '')}" data-cover="${escapeAttr(pod.cover_url || '')}" data-audio="${escapeAttr(pod.audio_url || '')}">
           <span class="material-symbols-rounded">edit</span> Editar
         </button>
-        <button class="btn-icon danger delete-podcast" data-id="${pod.id}" data-title="${escapeHtml(pod.title)}">
+        <button class="btn-icon danger delete-podcast" data-id="${escapeAttr(pod.id)}" data-title="${escapeAttr(pod.title)}">
           <span class="material-symbols-rounded">delete</span> Excluir
         </button>
       </div>
@@ -1103,9 +1103,9 @@ function openNewPodcastModal() {
 function openEditPodcastModal(data) {
   document.getElementById('modalTitle').innerText = "Editar podcast";
   document.getElementById('modalBody').innerHTML = `
-    <div class="form-group"><label>Título</label><input type="text" id="podcastTitle" value="${data.title}"></div>
-    <div class="form-group"><label>Descrição</label><textarea id="podcastDesc">${data.desc}</textarea></div>
-    <div class="form-group"><label>Capa (URL opcional)</label><input type="url" id="podcastCover" value="${data.cover}" placeholder="https://..."></div>
+    <div class="form-group"><label>Título</label><input type="text" id="podcastTitle" value="${escapeAttr(data.title || '')}"></div>
+    <div class="form-group"><label>Descrição</label><textarea id="podcastDesc">${escapeHtml(data.desc || '')}</textarea></div>
+    <div class="form-group"><label>Capa (URL opcional)</label><input type="url" id="podcastCover" value="${escapeAttr(data.cover || '')}" placeholder="https://..."></div>
     <div class="form-group"><label>Nova capa (opcional)</label><input type="file" id="podcastCoverFile" accept="image/*"></div>
     <div class="form-group"><label>Novo áudio (opcional)</label><input type="file" id="podcastAudio" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac,.opus,.flac"></div>
   `;
