@@ -438,6 +438,39 @@
     @media (prefers-reduced-motion: reduce) {
       .sidebar, .mobile-backdrop, .admin-tab, .admin-card, .quick-action, .tab-pane, .toast { transition: none; animation: none; }
     }
+    .rhythm-audit-panel { margin: 0 0 16px; padding: 16px; background: linear-gradient(145deg, rgba(119,169,255,.10), rgba(126,232,225,.035)); border: 1px solid rgba(119,169,255,.25); border-radius: 18px; }
+    .rhythm-audit-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .rhythm-audit-head h3 { font-size: 14px; letter-spacing: -.025em; }
+    .rhythm-audit-head p { max-width: 680px; margin-top: 5px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+    .rhythm-audit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 13px; }
+    .rhythm-audit-actions .btn-primary, .rhythm-audit-actions .btn-secondary { min-height: 36px; }
+    .rhythm-audit-select-all { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 11px; color: var(--text-soft); background: rgba(255,255,255,.045); border: 1px solid var(--line); border-radius: 11px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .rhythm-audit-select-all input { accent-color: var(--cyan); }
+    .rhythm-audit-status { min-height: 16px; margin-top: 11px; color: var(--text-muted); font-size: 11px; }
+    .rhythm-audit-results { display: grid; gap: 8px; margin-top: 12px; }
+    .rhythm-audit-item { display: grid; grid-template-columns: auto 42px minmax(0, 1fr) minmax(160px, 300px) auto auto; align-items: center; gap: 10px; padding: 10px; background: rgba(7,11,20,.42); border: 1px solid var(--line); border-radius: 13px; }
+    .rhythm-audit-item.is-busy { border-color: rgba(126,232,225,.35); }
+    .rhythm-audit-item.is-error { border-color: rgba(255,143,155,.32); }
+    .rhythm-audit-check { width: 17px; height: 17px; accent-color: var(--cyan); }
+    .rhythm-audit-cover { width: 42px; height: 42px; display: grid; place-items: center; overflow: hidden; color: var(--cyan); background: rgba(126,232,225,.09); border-radius: 10px; }
+    .rhythm-audit-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .rhythm-audit-copy { min-width: 0; }
+    .rhythm-audit-copy strong, .rhythm-audit-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rhythm-audit-copy strong { font-size: 12px; }
+    .rhythm-audit-copy small { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
+    .rhythm-audit-result { min-width: 160px; max-width: 300px; color: var(--text-soft); font-size: 10px; line-height: 1.4; text-align: right; }
+    .rhythm-audit-result strong { color: var(--cyan); }
+    .rhythm-audit-result a { color: var(--cyan); text-decoration: none; }
+    .rhythm-audit-result a:hover { text-decoration: underline; }
+    .rhythm-audit-item .btn-icon { min-height: 30px; padding: 0 9px; font-size: 10px; }
+    @media (max-width: 680px) {
+      .rhythm-audit-head { flex-direction: column; }
+      .rhythm-audit-actions { align-items: stretch; }
+      .rhythm-audit-actions > * { flex: 1 1 145px; }
+      .rhythm-audit-item { grid-template-columns: auto 38px minmax(0, 1fr); }
+      .rhythm-audit-result { grid-column: 2 / -1; min-width: 0; max-width: none; text-align: left; }
+      .rhythm-audit-item .btn-icon { grid-column: 2 / -1; justify-content: center; }
+    }
   </style>
 </head>
 <body>
@@ -528,7 +561,18 @@
 
         <section id="musicsTab" class="tab-pane">
           <div class="section-header"><div class="section-title-wrap"><h2><span class="material-symbols-rounded">library_music</span>Músicas</h2><p class="section-sub">Gerencie o catálogo, metadados, capas, letras e análise de ritmo.</p></div><div class="section-actions"><button id="newMusicBtn" class="btn-primary"><span class="material-symbols-rounded">add</span>Adicionar música</button></div></div>
-          <div class="section-tools"><label class="search-field"><span class="material-symbols-rounded">search</span><input id="musicsSearchInput" data-filter-target="musicsList" type="search" placeholder="Buscar por título, artista ou gênero" autocomplete="off"></label><span class="tool-note">Atalho: <b>M</b></span></div>
+          <div class="section-tools"><label class="search-field"><span class="material-symbols-rounded">search</span><input id="musicsSearchInput" data-filter-target="musicsList" type="search" placeholder="Buscar por título, artista ou gênero" autocomplete="off"></label><span class="tool-note">Catálogo completo</span></div>
+          <section id="rhythmAuditPanel" class="rhythm-audit-panel" aria-labelledby="rhythmAuditTitle">
+            <div class="rhythm-audit-head"><div><h3 id="rhythmAuditTitle">Músicas sem ritmo analisado</h3><p>Selecione uma ou todas as faixas sem BPM/ritmo. A busca consulta iTunes e Deezer em sequência e deixa os resultados para sua revisão; nada é salvo automaticamente.</p></div><span id="rhythmAuditCount" class="count-pill">0 pendentes</span></div>
+            <div class="rhythm-audit-actions">
+              <label class="rhythm-audit-select-all"><input id="rhythmAuditSelectAll" type="checkbox"> Selecionar todas</label>
+              <button id="rhythmAuditSearchBtn" type="button" class="btn-primary" disabled><span class="material-symbols-rounded">travel_explore</span>Pesquisar selecionadas</button>
+              <button id="rhythmAuditAnalyzeBtn" type="button" class="btn-secondary" disabled><span class="material-symbols-rounded">graphic_eq</span>Analisar áudio salvo</button>
+              <button id="rhythmAuditSaveBtn" type="button" class="btn-secondary" disabled><span class="material-symbols-rounded">save</span>Salvar resultados</button>
+            </div>
+            <div id="rhythmAuditStatus" class="rhythm-audit-status" role="status" aria-live="polite">Carregando músicas sem ritmo…</div>
+            <div id="rhythmAuditResults" class="rhythm-audit-results"></div>
+          </section>
           <div id="musicsList" class="card-grid"></div>
         </section>
 
@@ -586,7 +630,7 @@
   <script src="supabase-config.js"></script>
   <script src="music-analyzer.js?v=20260826-5"></script>
   <script src="admin-music-requests.js?v=music-requests-v3"></script>
-  <script src="admin.js?v=music-requests-v3"></script>
+  <script src="admin.js?v=music-rhythm-batch-v1"></script>
   <script src="admin-music-upload.js?v=20260827-2"></script>
   <script src="admin-messages.js?v=20260827-2"></script>
   <script src="admin-ui.js?v=20260827-2"></script>

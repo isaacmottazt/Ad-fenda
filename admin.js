@@ -47,6 +47,10 @@ function escapeHtml(str) {
   });
 }
 
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // ========== BUSCA CAPA DE MÚSICA (Deezer + iTunes) ==========
 async function fetchCoverFromDeezer(artist, track) {
   const normalize = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -263,38 +267,311 @@ async function deleteUser(userId, userName) {
   else { showToast("Usuário excluído!"); loadUsers(); }
 }
 
+// ========== TRIAGEM DE RITMO DO CATÁLOGO ==========
+let adminRhythmRows = [];
+let adminRhythmSelectedIds = new Set();
+let adminRhythmBusy = false;
+let adminRhythmControlsBound = false;
+
+function musicNeedsRhythmAudit(music) {
+  const bpm = Number(music?.tempo_bpm);
+  const rhythm = String(music?.rhythm_profile || '').trim();
+  return !(Number.isFinite(bpm) && bpm > 0 && rhythm);
+}
+
+function rhythmRowById(id) {
+  return adminRhythmRows.find(row => String(row.music.id) === String(id));
+}
+
+function rhythmSelectedRows() {
+  return adminRhythmRows.filter(row => adminRhythmSelectedIds.has(String(row.music.id)));
+}
+
+function rhythmResultHtml(row) {
+  const parts = [];
+  if (row.status === 'searching') parts.push('<strong>Pesquisando gênero/estilo…</strong>');
+  if (row.status === 'analyzing') parts.push('<strong>Analisando áudio salvo…</strong>');
+  if (row.online) {
+    const tags = [...new Set((row.online.genres || []).filter(Boolean))];
+    parts.push(tags.length
+      ? `<strong>Busca online:</strong> ${escapeHtml(tags.join(' · '))}${row.online.source ? ` <small>(${escapeHtml(row.online.source)})</small>` : ''}`
+      : `<strong>Busca online:</strong> nenhum gênero confirmado${row.online.searchUrl ? ` · <a href="${escapeAttr(row.online.searchUrl)}" target="_blank" rel="noopener">abrir pesquisa</a>` : ''}`);
+  }
+  if (row.analysis) {
+    const a = row.analysis;
+    parts.push(`<strong>Áudio:</strong> ${a.bpm ? `${escapeHtml(a.bpm)} BPM` : 'BPM não detectado'} · ${escapeHtml(a.rhythmProfile || 'ritmo indefinido')} · confiança ${Math.round((Number(a.confidence) || 0) * 100)}%`);
+  }
+  if (row.error) parts.push(`<span style="color:var(--red);">${escapeHtml(row.error)}</span>`);
+  if (!parts.length) parts.push('<span>Aguardando pesquisa ou análise.</span>');
+  return parts.join('<br>');
+}
+
+function renderRhythmAuditItems() {
+  const results = document.getElementById('rhythmAuditResults');
+  if (!results) return;
+  if (!adminRhythmRows.length) {
+    results.innerHTML = '<div class="empty-state"><span class="material-symbols-rounded">check_circle</span><h3>Catálogo em dia</h3><p>Nenhuma música está sem BPM e perfil de ritmo.</p></div>';
+    updateRhythmAuditControls();
+    return;
+  }
+  results.innerHTML = adminRhythmRows.map(row => {
+    const music = row.music;
+    const id = escapeAttr(String(music.id));
+    const cover = music.cover
+      ? `<img src="${escapeAttr(music.cover)}" alt="">`
+      : '<span class="material-symbols-rounded">music_note</span>';
+    const statusClass = row.status === 'error' ? ' is-error' : (row.status === 'searching' || row.status === 'analyzing' ? ' is-busy' : '');
+    return `<article class="rhythm-audit-item${statusClass}" data-rhythm-id="${id}">
+      <input class="rhythm-audit-check" type="checkbox" data-rhythm-select="${id}" ${adminRhythmSelectedIds.has(String(music.id)) ? 'checked' : ''} aria-label="Selecionar ${escapeAttr(music.title || 'música')}">
+      <div class="rhythm-audit-cover">${cover}</div>
+      <div class="rhythm-audit-copy"><strong>${escapeHtml(music.title || 'Sem título')}</strong><small>${escapeHtml(music.artist || 'Artista não informado')} · ${music.tempo_bpm ? `${escapeHtml(music.tempo_bpm)} BPM` : 'sem BPM'}${music.rhythm_profile ? ` · ${escapeHtml(music.rhythm_profile)}` : ''}</small></div>
+      <div class="rhythm-audit-result">${rhythmResultHtml(row)}</div>
+      <button type="button" class="btn-icon" data-rhythm-action="search-one" data-rhythm-id="${id}" ${adminRhythmBusy ? 'disabled' : ''}><span class="material-symbols-rounded">travel_explore</span>Pesquisar</button>
+      <button type="button" class="btn-icon" data-rhythm-action="analyze-one" data-rhythm-id="${id}" ${adminRhythmBusy ? 'disabled' : ''}><span class="material-symbols-rounded">graphic_eq</span>Analisar</button>
+    </article>`;
+  }).join('');
+  updateRhythmAuditControls();
+}
+
+function updateRhythmAuditControls() {
+  const panel = document.getElementById('rhythmAuditPanel');
+  if (!panel) return;
+  const count = document.getElementById('rhythmAuditCount');
+  const status = document.getElementById('rhythmAuditStatus');
+  const selectAll = document.getElementById('rhythmAuditSelectAll');
+  const selected = rhythmSelectedRows().length;
+  const hasResults = rhythmSelectedRows().some(row => row.online || row.analysis);
+  const setDisabled = (id, disabled) => { const el = document.getElementById(id); if (el) el.disabled = disabled; };
+  if (count) count.textContent = `${adminRhythmRows.length} pendente${adminRhythmRows.length === 1 ? '' : 's'}`;
+  if (selectAll) {
+    selectAll.disabled = adminRhythmBusy || !adminRhythmRows.length;
+    selectAll.checked = Boolean(adminRhythmRows.length && selected === adminRhythmRows.length);
+    selectAll.indeterminate = Boolean(selected && selected < adminRhythmRows.length);
+  }
+  setDisabled('rhythmAuditSearchBtn', adminRhythmBusy || !selected);
+  setDisabled('rhythmAuditAnalyzeBtn', adminRhythmBusy || !selected);
+  setDisabled('rhythmAuditSaveBtn', adminRhythmBusy || !hasResults);
+  if (status && !adminRhythmBusy && !adminRhythmRows.length) status.textContent = 'Nenhuma música pendente no momento.';
+}
+
+function renderRhythmAudit(musics) {
+  const panel = document.getElementById('rhythmAuditPanel');
+  if (!panel) return;
+  const previous = new Map(adminRhythmRows.map(row => [String(row.music.id), row]));
+  adminRhythmRows = (musics || []).filter(musicNeedsRhythmAudit).map(music => {
+    const old = previous.get(String(music.id));
+    return old ? { ...old, music } : { music, status: 'pending', online: null, analysis: null, error: '' };
+  });
+  const validIds = new Set(adminRhythmRows.map(row => String(row.music.id)));
+  adminRhythmSelectedIds = new Set([...adminRhythmSelectedIds].filter(id => validIds.has(id)));
+  panel.hidden = false;
+  if (!adminRhythmBusy) {
+    const status = document.getElementById('rhythmAuditStatus');
+    if (status) status.textContent = adminRhythmRows.length ? 'Selecione as faixas e escolha uma ação. Os resultados ficam para revisão.' : 'Nenhuma música pendente no momento.';
+  }
+  renderRhythmAuditItems();
+}
+
+async function runRhythmSearch(rows = rhythmSelectedRows()) {
+  if (adminRhythmBusy) return;
+  if (!rows.length) { showToast('Selecione pelo menos uma música.', 'error'); return; }
+  if (typeof window.searchStyleOnline !== 'function') { showToast('A busca online ainda não carregou.', 'error'); return; }
+  adminRhythmBusy = true;
+  const status = document.getElementById('rhythmAuditStatus');
+  try {
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index];
+      row.status = 'searching'; row.error = '';
+      if (status) status.textContent = `Pesquisando ${index + 1} de ${rows.length}: ${row.music.title || 'música'}…`;
+      renderRhythmAuditItems();
+      try {
+        row.online = await window.searchStyleOnline(row.music.title || '', row.music.artist || '', row.music.genre || '');
+        row.status = 'searched';
+      } catch (error) {
+        row.status = 'error';
+        row.error = error.message || 'Pesquisa indisponível';
+      }
+    }
+  } finally {
+    adminRhythmBusy = false;
+    if (status) status.textContent = `Pesquisa concluída para ${rows.length} faixa${rows.length === 1 ? '' : 's'}. Revise os resultados antes de salvar.`;
+    renderRhythmAuditItems();
+  }
+}
+
+async function runRhythmAudioAnalysis(rows = rhythmSelectedRows()) {
+  if (adminRhythmBusy) return;
+  if (!rows.length) { showToast('Selecione pelo menos uma música.', 'error'); return; }
+  if (typeof window.FendaMusicAnalyzer?.analyzeAudioFile !== 'function') { showToast('O analisador de áudio ainda não carregou.', 'error'); return; }
+  adminRhythmBusy = true;
+  const status = document.getElementById('rhythmAuditStatus');
+  try {
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index];
+      row.status = 'analyzing'; row.error = '';
+      if (status) status.textContent = `Analisando ${index + 1} de ${rows.length}: ${row.music.title || 'música'}…`;
+      renderRhythmAuditItems();
+      try {
+        if (!row.music.src) throw new Error('Esta música não possui áudio salvo.');
+        const response = await fetch(row.music.src, { mode: 'cors' });
+        if (!response.ok) throw new Error(`Áudio indisponível (HTTP ${response.status})`);
+        const blob = await response.blob();
+        const file = new File([blob], `${row.music.title || 'musica'}.audio`, { type: blob.type || 'audio/mpeg' });
+        row.analysis = await window.FendaMusicAnalyzer.analyzeAudioFile(file, {
+          title: row.music.title || '',
+          artist: row.music.artist || '',
+          genre: row.music.genre || '',
+          useOpenModel: true,
+          onModelProgress: progress => {
+            if (progress?.progress != null && status) status.textContent = `Carregando IA aberta: ${Math.round(progress.progress)}%…`;
+          },
+        });
+        row.status = 'analyzed';
+      } catch (error) {
+        row.status = 'error';
+        row.error = error.message || 'Análise indisponível';
+      }
+    }
+  } finally {
+    adminRhythmBusy = false;
+    if (status) status.textContent = `Análise concluída para ${rows.length} faixa${rows.length === 1 ? '' : 's'}. Revise os resultados antes de salvar.`;
+    renderRhythmAuditItems();
+  }
+}
+
+async function saveRhythmResults() {
+  if (adminRhythmBusy) return;
+  const rows = rhythmSelectedRows().filter(row => row.online || row.analysis);
+  if (!rows.length) { showToast('Selecione uma faixa com resultado antes de salvar.', 'error'); return; }
+  adminRhythmBusy = true;
+  const status = document.getElementById('rhythmAuditStatus');
+  let saved = 0;
+  let failed = 0;
+  try {
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index];
+      if (status) status.textContent = `Salvando ${index + 1} de ${rows.length}: ${row.music.title || 'música'}…`;
+      const updates = {};
+      const onlineTags = [...new Set((row.online?.genres || []).filter(Boolean))];
+      const analysis = row.analysis;
+      const existingTags = Array.isArray(row.music.style_tags) ? row.music.style_tags : [];
+      if (onlineTags.length) {
+        if (!String(row.music.genre || '').trim()) updates.genre = onlineTags[0];
+        if (!String(row.music.style || '').trim()) updates.style = onlineTags[0];
+        updates.style_tags = [...new Set([...existingTags, ...onlineTags])];
+        updates.analysis_source = row.online.source ? `metadata-search-v1+${row.online.source}` : 'metadata-search-v1';
+        updates.analysis_version = 'metadata-search-v1';
+        updates.analyzed_at = new Date().toISOString();
+      }
+      if (analysis) {
+        updates.style = String(row.music.style || '').trim() || analysis.style || null;
+        updates.style_tags = [...new Set([...(updates.style_tags || existingTags), ...(analysis.styleTags || [])])];
+        updates.rhythm_profile = analysis.rhythmProfile || null;
+        updates.tempo_bpm = Number(analysis.bpm) || null;
+        updates.energy_score = Number.isFinite(Number(analysis.energy)) ? analysis.energy : null;
+        updates.danceability_score = Number.isFinite(Number(analysis.danceability)) ? analysis.danceability : null;
+        updates.analysis_confidence = Number.isFinite(Number(analysis.confidence)) ? analysis.confidence : null;
+        updates.analysis_source = analysis.source || 'browser-acoustic-v1';
+        updates.analysis_version = analysis.version || '1.0.0';
+        updates.analyzed_at = analysis.analyzedAt || new Date().toISOString();
+      }
+      if (!Object.keys(updates).length) continue;
+      const { error } = await supabaseClient.from('musics').update(updates).eq('id', row.music.id);
+      if (error) { failed++; row.error = `Falha ao salvar: ${error.message}`; row.status = 'error'; }
+      else saved++;
+    }
+  } finally {
+    adminRhythmBusy = false;
+  }
+  if (failed) showToast(`${saved} salva(s), ${failed} falhou(aram).`, 'error');
+  else showToast(`${saved} resultado(s) salvo(s) no catálogo.`, 'success');
+  if (status) status.textContent = failed ? 'Alguns resultados não foram salvos; revise os erros abaixo.' : 'Resultados salvos. Atualizando o catálogo…';
+  await loadMusics();
+}
+
+function bindRhythmAuditControls() {
+  if (adminRhythmControlsBound) return;
+  const panel = document.getElementById('rhythmAuditPanel');
+  if (!panel) return;
+  adminRhythmControlsBound = true;
+  panel.addEventListener('change', event => {
+    const checkbox = event.target.closest('[data-rhythm-select]');
+    if (!checkbox) return;
+    const id = String(checkbox.dataset.rhythmSelect);
+    if (checkbox.checked) adminRhythmSelectedIds.add(id);
+    else adminRhythmSelectedIds.delete(id);
+    updateRhythmAuditControls();
+  });
+  panel.addEventListener('click', event => {
+    const actionButton = event.target.closest('[data-rhythm-action]');
+    if (actionButton) {
+      const row = rhythmRowById(actionButton.dataset.rhythmId);
+      if (!row) return;
+      adminRhythmSelectedIds.add(String(actionButton.dataset.rhythmId));
+      updateRhythmAuditControls();
+      if (actionButton.dataset.rhythmAction === 'search-one') runRhythmSearch([row]);
+      if (actionButton.dataset.rhythmAction === 'analyze-one') runRhythmAudioAnalysis([row]);
+    }
+  });
+  document.getElementById('rhythmAuditSelectAll')?.addEventListener('change', event => {
+    adminRhythmSelectedIds = event.target.checked
+      ? new Set(adminRhythmRows.map(row => String(row.music.id)))
+      : new Set();
+    renderRhythmAuditItems();
+  });
+  document.getElementById('rhythmAuditSearchBtn')?.addEventListener('click', () => runRhythmSearch());
+  document.getElementById('rhythmAuditAnalyzeBtn')?.addEventListener('click', () => runRhythmAudioAnalysis());
+  document.getElementById('rhythmAuditSaveBtn')?.addEventListener('click', saveRhythmResults);
+  updateRhythmAuditControls();
+}
+
 // ========== CRUD MÚSICAS ==========
 async function loadMusics() {
-  const musics = await window.loadMusicsFromSupabase();
   const container = document.getElementById('musicsList');
-  container.innerHTML = '';
-  for (const music of musics) {
-    const card = document.createElement('div');
-    card.className = 'admin-card';
-    card.innerHTML = `
-      <h3>${escapeHtml(music.title)}</h3>
-      <p><strong>Artista:</strong> ${escapeHtml(music.artist)}</p>
-      ${music.cover ? `<img src="${music.cover}" alt="Capa">` : ''}
-      <p><strong>Gênero:</strong> ${escapeHtml(music.genre || '—')}</p>
-      <p><strong>Estilo:</strong> ${escapeHtml(music.style || (music.style_tags || []).join(', ') || '—')}</p>
-      <p><strong>Ritmo:</strong> ${music.tempo_bpm ? `${music.tempo_bpm} BPM · ${escapeHtml(music.rhythm_profile || 'indefinido')}` : 'não analisado'}</p>
-      <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-        <button class="btn-icon edit-music" data-id="${music.id}" data-title="${escapeHtml(music.title)}" data-artist="${escapeHtml(music.artist)}" data-cover="${music.cover || ''}" data-src="${music.src}" data-lrc="${music.lrc || ''}" data-genre="${music.genre || ''}" data-style="${music.style || ''}" data-style-tags="${(music.style_tags || []).join(', ')}" data-tempo-bpm="${music.tempo_bpm || ''}" data-energy="${music.energy_score || ''}" data-danceability="${music.danceability_score || ''}" data-rhythm-profile="${music.rhythm_profile || ''}" data-analysis-confidence="${music.analysis_confidence || ''}" data-analysis-source="${escapeHtml(music.analysis_source || '')}" data-analysis-version="${escapeHtml(music.analysis_version || '')}" data-analyzed-at="${escapeHtml(music.analyzed_at || '')}">
-          <span class="material-symbols-rounded">edit</span> Editar
-        </button>
-        <button class="btn-icon danger delete-music" data-id="${music.id}" data-title="${escapeHtml(music.title)}">
-          <span class="material-symbols-rounded">delete</span> Excluir
-        </button>
-      </div>
-    `;
-    container.appendChild(card);
+  try {
+    const loadedMusics = await window.loadMusicsFromSupabase();
+    const musics = Array.isArray(loadedMusics) ? loadedMusics : [];
+    if (!container) return;
+    container.innerHTML = '';
+    for (const music of musics) {
+      const card = document.createElement('div');
+      card.className = 'admin-card';
+      card.innerHTML = `
+        <h3>${escapeHtml(music.title)}</h3>
+        <p><strong>Artista:</strong> ${escapeHtml(music.artist)}</p>
+        ${music.cover ? `<img src="${escapeAttr(music.cover)}" alt="Capa">` : ''}
+        <p><strong>Gênero:</strong> ${escapeHtml(music.genre || '—')}</p>
+        <p><strong>Estilo:</strong> ${escapeHtml(music.style || (music.style_tags || []).join(', ') || '—')}</p>
+        <p><strong>Ritmo:</strong> ${music.tempo_bpm ? `${music.tempo_bpm} BPM · ${escapeHtml(music.rhythm_profile || 'indefinido')}` : 'não analisado'}</p>
+        <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+          <button class="btn-icon edit-music" data-id="${escapeAttr(music.id)}" data-title="${escapeAttr(music.title)}" data-artist="${escapeAttr(music.artist)}" data-cover="${escapeAttr(music.cover || '')}" data-src="${escapeAttr(music.src || '')}" data-lrc="${escapeAttr(music.lrc || '')}" data-genre="${escapeAttr(music.genre || '')}" data-style="${escapeAttr(music.style || '')}" data-style-tags="${escapeAttr((music.style_tags || []).join(', '))}" data-tempo-bpm="${escapeAttr(music.tempo_bpm || '')}" data-energy="${escapeAttr(music.energy_score || '')}" data-danceability="${escapeAttr(music.danceability_score || '')}" data-rhythm-profile="${escapeAttr(music.rhythm_profile || '')}" data-analysis-confidence="${escapeAttr(music.analysis_confidence || '')}" data-analysis-source="${escapeAttr(music.analysis_source || '')}" data-analysis-version="${escapeAttr(music.analysis_version || '')}" data-analyzed-at="${escapeAttr(music.analyzed_at || '')}">
+            <span class="material-symbols-rounded">edit</span> Editar
+          </button>
+          <button class="btn-icon danger delete-music" data-id="${escapeAttr(music.id)}" data-title="${escapeAttr(music.title)}">
+            <span class="material-symbols-rounded">delete</span> Excluir
+          </button>
+        </div>
+      `;
+      container.appendChild(card);
+    }
+    document.querySelectorAll('.edit-music').forEach(btn => {
+      btn.addEventListener('click', () => openEditMusicModal(btn.dataset));
+    });
+    document.querySelectorAll('.delete-music').forEach(btn => {
+      btn.addEventListener('click', () => deleteMusic(btn.dataset.id, btn.dataset.title));
+    });
+    bindRhythmAuditControls();
+    renderRhythmAudit(musics);
+  } catch (error) {
+    console.error('loadMusics:', error);
+    adminRhythmRows = [];
+    adminRhythmSelectedIds.clear();
+    if (container) container.innerHTML = '<div class="empty-state"><span class="material-symbols-rounded">error</span><h3>Não foi possível carregar o catálogo</h3><p>Tente atualizar o painel novamente.</p></div>';
+    renderRhythmAudit([]);
+    const status = document.getElementById('rhythmAuditStatus');
+    if (status) status.textContent = 'Erro ao carregar as músicas. Tente atualizar o painel.';
+    showToast('Erro ao carregar músicas.', 'error');
   }
-  document.querySelectorAll('.edit-music').forEach(btn => {
-    btn.addEventListener('click', () => openEditMusicModal(btn.dataset));
-  });
-  document.querySelectorAll('.delete-music').forEach(btn => {
-    btn.addEventListener('click', () => deleteMusic(btn.dataset.id, btn.dataset.title));
-  });
 }
 
 function openEditMusicModal(data) {
