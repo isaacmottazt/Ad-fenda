@@ -413,6 +413,18 @@ async function saveRhythmRowResult(row) {
   return { saved: true };
 }
 
+async function runRhythmRowsInParallel(rows, worker, concurrency = 3) {
+  let nextIndex = 0;
+  const workerCount = Math.min(concurrency, rows.length);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const index = nextIndex++;
+      if (index >= rows.length) return;
+      await worker(rows[index], index);
+    }
+  }));
+}
+
 async function runRhythmSearch(rows = rhythmSelectedRows()) {
   if (adminRhythmBusy) return;
   if (!rows.length) { showToast('Selecione pelo menos uma música.', 'error'); return; }
@@ -420,8 +432,7 @@ async function runRhythmSearch(rows = rhythmSelectedRows()) {
   adminRhythmBusy = true;
   const status = document.getElementById('rhythmAuditStatus');
   try {
-    for (let index = 0; index < rows.length; index++) {
-      const row = rows[index];
+    await runRhythmRowsInParallel(rows, async (row, index) => {
       row.status = 'searching'; row.error = '';
       if (status) status.textContent = `Pesquisando ${index + 1} de ${rows.length}: ${row.music.title || 'música'}…`;
       renderRhythmAuditItems();
@@ -433,7 +444,8 @@ async function runRhythmSearch(rows = rhythmSelectedRows()) {
         row.status = 'error';
         row.error = error.message || 'Pesquisa indisponível';
       }
-    }
+      renderRhythmAuditItems();
+    }, 3);
   } finally {
     adminRhythmBusy = false;
     if (rows.some(row => row.status === 'saved')) await loadMusics();
@@ -449,8 +461,7 @@ async function runRhythmAudioAnalysis(rows = rhythmSelectedRows()) {
   adminRhythmBusy = true;
   const status = document.getElementById('rhythmAuditStatus');
   try {
-    for (let index = 0; index < rows.length; index++) {
-      const row = rows[index];
+    await runRhythmRowsInParallel(rows, async (row, index) => {
       row.status = 'analyzing'; row.error = '';
       if (status) status.textContent = `Analisando ${index + 1} de ${rows.length}: ${row.music.title || 'música'}…`;
       renderRhythmAuditItems();
@@ -475,7 +486,8 @@ async function runRhythmAudioAnalysis(rows = rhythmSelectedRows()) {
         row.status = 'error';
         row.error = error.message || 'Análise indisponível';
       }
-    }
+      renderRhythmAuditItems();
+    }, 2);
   } finally {
     adminRhythmBusy = false;
     if (rows.some(row => row.status === 'saved')) await loadMusics();

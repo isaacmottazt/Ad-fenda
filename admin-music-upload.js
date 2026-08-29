@@ -76,35 +76,26 @@ let _searchCache = {};
 async function searchMusic(query, type = 'track') {
   const key = `${type}:${query.toLowerCase()}`;
   if (_searchCache[key]) return _searchCache[key];
-  let results = [];
-  try {
-    const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=${type === 'artist' ? 'musicArtist' : 'musicTrack'}&limit=6`;
-    const r = await fetch(itunesUrl);
-    const d = await r.json();
-    if (d.results?.length) {
-      results = d.results.map(it => type === 'artist'
-        ? { name: it.artistName, image: null, source: 'iTunes' }
-        : { title: it.trackName, artist: it.artistName,
-              image: (it.artworkUrl100 || '').replace('100x100', '600x600') || null,
-              genre: it.primaryGenreName || '',
-              source: 'iTunes' });
-    }
-  } catch (e) {}
-  if (results.length < 4) {
-    try {
-      const dz = await fetch(`https://api.deezer.com/search/${type === 'artist' ? 'artist' : 'track'}?q=${encodeURIComponent(query)}&limit=6`);
-      const dd = await dz.json();
-      if (dd.data?.length) {
-        results = results.concat(dd.data.map(it => type === 'artist'
-          ? { name: it.name, image: it.picture_medium || null, source: 'Deezer' }
-          : { title: it.title, artist: it.artist?.name || '',
-              image: it.album?.cover_big || it.album?.cover_medium || null,
-              genre: it.genre?.name || '',
-              source: 'Deezer' }));
-      }
-    } catch (e) {}
-  }
-  _searchCache[key] = results.slice(0, 8);
+  const itunesRequest = fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=${type === 'artist' ? 'musicArtist' : 'musicTrack'}&limit=6`)
+    .then(response => response.json())
+    .then(data => (data.results || []).map(it => type === 'artist'
+      ? { name: it.artistName, image: null, source: 'iTunes' }
+      : { title: it.trackName, artist: it.artistName,
+          image: (it.artworkUrl100 || '').replace('100x100', '600x600') || null,
+          genre: it.primaryGenreName || '',
+          source: 'iTunes' }))
+    .catch(() => []);
+  const deezerRequest = fetch(`https://api.deezer.com/search/${type === 'artist' ? 'artist' : 'track'}?q=${encodeURIComponent(query)}&limit=6`)
+    .then(response => response.json())
+    .then(data => (data.data || []).map(it => type === 'artist'
+      ? { name: it.name, image: it.picture_medium || null, source: 'Deezer' }
+      : { title: it.title, artist: it.artist?.name || '',
+          image: it.album?.cover_big || it.album?.cover_medium || null,
+          genre: it.genre?.name || '',
+          source: 'Deezer' }))
+    .catch(() => []);
+  const [itunesResults, deezerResults] = await Promise.all([itunesRequest, deezerRequest]);
+  _searchCache[key] = [...itunesResults, ...deezerResults].slice(0, 8);
   return _searchCache[key];
 }
 
