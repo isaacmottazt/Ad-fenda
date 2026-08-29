@@ -340,7 +340,6 @@ function updateRhythmAuditControls() {
   const status = document.getElementById('rhythmAuditStatus');
   const selectAll = document.getElementById('rhythmAuditSelectAll');
   const selected = rhythmSelectedRows().length;
-  const hasResults = rhythmSelectedRows().some(row => row.online || row.analysis);
   const setDisabled = (id, disabled) => { const el = document.getElementById(id); if (el) el.disabled = disabled; };
   if (count) count.textContent = `${adminRhythmRows.length} pendente${adminRhythmRows.length === 1 ? '' : 's'}`;
   if (selectAll) {
@@ -350,7 +349,6 @@ function updateRhythmAuditControls() {
   }
   setDisabled('rhythmAuditSearchBtn', adminRhythmBusy || !selected);
   setDisabled('rhythmAuditAnalyzeBtn', adminRhythmBusy || !selected);
-  setDisabled('rhythmAuditSaveBtn', adminRhythmBusy || !hasResults);
   if (status && !adminRhythmBusy && !adminRhythmRows.length) status.textContent = 'Nenhuma música pendente no momento.';
 }
 
@@ -367,9 +365,52 @@ function renderRhythmAudit(musics) {
   panel.hidden = false;
   if (!adminRhythmBusy) {
     const status = document.getElementById('rhythmAuditStatus');
-    if (status) status.textContent = adminRhythmRows.length ? 'Selecione as faixas e escolha uma ação. Os resultados ficam para revisão.' : 'Nenhuma música pendente no momento.';
+    if (status) status.textContent = adminRhythmRows.length ? 'Selecione as faixas. Resultados válidos serão salvos automaticamente após cada pesquisa ou análise.' : 'Nenhuma música pendente no momento.';
   }
   renderRhythmAuditItems();
+}
+
+function buildRhythmUpdates(row) {
+  const updates = {};
+  const onlineTags = [...new Set((row.online?.genres || []).filter(Boolean))];
+  const analysis = row.analysis;
+  const existingTags = Array.isArray(row.music.style_tags) ? row.music.style_tags : [];
+  if (onlineTags.length) {
+    if (!String(row.music.genre || '').trim()) updates.genre = onlineTags[0];
+    if (!String(row.music.style || '').trim()) updates.style = onlineTags[0];
+    updates.style_tags = [...new Set([...existingTags, ...onlineTags])];
+    updates.analysis_source = row.online.source ? `metadata-search-v1+${row.online.source}` : 'metadata-search-v1';
+    updates.analysis_version = 'metadata-search-v1';
+    updates.analyzed_at = new Date().toISOString();
+  }
+  if (analysis) {
+    updates.style = String(row.music.style || '').trim() || analysis.style || null;
+    updates.style_tags = [...new Set([...(updates.style_tags || existingTags), ...(analysis.styleTags || [])])];
+    updates.rhythm_profile = analysis.rhythmProfile || null;
+    updates.tempo_bpm = Number(analysis.bpm) || null;
+    updates.energy_score = Number.isFinite(Number(analysis.energy)) ? analysis.energy : null;
+    updates.danceability_score = Number.isFinite(Number(analysis.danceability)) ? analysis.danceability : null;
+    updates.analysis_confidence = Number.isFinite(Number(analysis.confidence)) ? analysis.confidence : null;
+    updates.analysis_source = analysis.source || 'browser-acoustic-v1';
+    updates.analysis_version = analysis.version || '1.0.0';
+    updates.analyzed_at = analysis.analyzedAt || new Date().toISOString();
+  }
+  return updates;
+}
+
+async function saveRhythmRowResult(row) {
+  const updates = buildRhythmUpdates(row);
+  if (!Object.keys(updates).length) return { saved: false };
+  const { error } = await supabaseClient.from('musics').update(updates).eq('id', row.music.id);
+  if (error) {
+    row.status = 'error';
+    row.error = `Falha ao salvar automaticamente: ${error.message}`;
+    return { saved: false, error };
+  }
+  row.music = { ...row.music, ...updates };
+  row.status = 'saved';
+  row.error = '';
+  return { saved: true };
 }
 
 async function runRhythmSearch(rows = rhythmSelectedRows()) {
@@ -387,6 +428,7 @@ async function runRhythmSearch(rows = rhythmSelectedRows()) {
       try {
         row.online = await window.searchStyleOnline(row.music.title || '', row.music.artist || '', row.music.genre || '');
         row.status = 'searched';
+        await saveRhythmRowResult(row);
       } catch (error) {
         row.status = 'error';
         row.error = error.message || 'Pesquisa indisponível';
@@ -394,7 +436,8 @@ async function runRhythmSearch(rows = rhythmSelectedRows()) {
     }
   } finally {
     adminRhythmBusy = false;
-    if (status) status.textContent = `Pesquisa concluída para ${rows.length} faixa${rows.length === 1 ? '' : 's'}. Revise os resultados antes de salvar.`;
+    if (rows.some(row => row.status === 'saved')) await loadMusics();
+    if (status) status.textContent = `Pesquisa concluída para ${rows.length} faixa${rows.length === 1 ? '' : 's'}. Resultados válidos foram salvos automaticamente.`;
     renderRhythmAuditItems();
   }
 }
@@ -427,6 +470,7 @@ async function runRhythmAudioAnalysis(rows = rhythmSelectedRows()) {
           },
         });
         row.status = 'analyzed';
+        await saveRhythmRowResult(row);
       } catch (error) {
         row.status = 'error';
         row.error = error.message || 'Análise indisponível';
@@ -434,7 +478,8 @@ async function runRhythmAudioAnalysis(rows = rhythmSelectedRows()) {
     }
   } finally {
     adminRhythmBusy = false;
-    if (status) status.textContent = `Análise concluída para ${rows.length} faixa${rows.length === 1 ? '' : 's'}. Revise os resultados antes de salvar.`;
+    if (rows.some(row => row.status === 'saved')) await loadMusics();
+    if (status) status.textContent = `Análise concluída para ${rows.length} faixa${rows.length === 1 ? '' : 's'}. Resultados válidos foram salvos automaticamente.`;
     renderRhythmAuditItems();
   }
 }
@@ -521,7 +566,6 @@ function bindRhythmAuditControls() {
   });
   document.getElementById('rhythmAuditSearchBtn')?.addEventListener('click', () => runRhythmSearch());
   document.getElementById('rhythmAuditAnalyzeBtn')?.addEventListener('click', () => runRhythmAudioAnalysis());
-  document.getElementById('rhythmAuditSaveBtn')?.addEventListener('click', saveRhythmResults);
   updateRhythmAuditControls();
 }
 
@@ -718,6 +762,42 @@ function openEditMusicModal(data) {
     analysisStatus.innerHTML = `<strong>Análise concluída:</strong> ${analysis.bpm ? `${analysis.bpm} BPM` : 'BPM não detectado'} · energia ${Math.round((analysis.energy || 0) * 100)}% · ritmo ${escapeHtml(analysis.rhythmProfile || 'indefinido')} · confiança ${Math.round((analysis.confidence || 0) * 100)}%<br><small>Estilos sugeridos: ${escapeHtml(styleTags.join(', ') || 'nenhum')}${evidence}</small>`;
   }
 
+  function buildEditAnalysisUpdates(analysis) {
+    const styleTags = [...new Set((analysis.styleTags || []).filter(Boolean))];
+    const updates = {
+      style: analysis.style || styleTags[0] || null,
+      style_tags: styleTags.length ? styleTags : null,
+      rhythm_profile: analysis.rhythmProfile || null,
+      tempo_bpm: Number(analysis.bpm) || null,
+      energy_score: Number.isFinite(Number(analysis.energy)) ? analysis.energy : null,
+      danceability_score: Number.isFinite(Number(analysis.danceability)) ? analysis.danceability : null,
+      analysis_confidence: Number.isFinite(Number(analysis.confidence)) ? analysis.confidence : null,
+      analysis_source: analysis.source || 'browser-acoustic-v1',
+      analysis_version: analysis.version || '1.0.0',
+      analyzed_at: analysis.analyzedAt || new Date().toISOString(),
+    };
+    return Object.fromEntries(Object.entries(updates).filter(([, value]) => value !== null && value !== undefined));
+  }
+
+  async function persistEditAnalysis(analysis) {
+    const updates = buildEditAnalysisUpdates(analysis);
+    if (!Object.keys(updates).length) throw new Error('A análise não retornou dados para salvar.');
+    const { error } = await supabaseClient.from('musics').update(updates).eq('id', data.id);
+    if (error) throw error;
+    Object.assign(data, {
+      style: updates.style || data.style,
+      styleTags: updates.style_tags || data.styleTags,
+      rhythmProfile: updates.rhythm_profile || data.rhythmProfile,
+      tempoBpm: updates.tempo_bpm || data.tempoBpm,
+      energy: updates.energy_score ?? data.energy,
+      danceability: updates.danceability_score ?? data.danceability,
+      analysisConfidence: updates.analysis_confidence ?? data.analysisConfidence,
+      analysisSource: updates.analysis_source || data.analysisSource,
+      analysisVersion: updates.analysis_version || data.analysisVersion,
+      analyzedAt: updates.analyzed_at || data.analyzedAt,
+    });
+  }
+
   async function runEditAnalysis(file) {
     if (!file || !window.FendaMusicAnalyzer?.analyzeAudioFile) return;
     analyzeBtn.disabled = true;
@@ -734,10 +814,11 @@ function openEditMusicModal(data) {
         },
       });
       applyEditAnalysis(analysis);
-      showToast('Análise concluída!', 'success');
+      await persistEditAnalysis(analysis);
+      showToast('Análise concluída e salva automaticamente!', 'success');
     } catch (error) {
-      analysisStatus.textContent = `Não foi possível analisar este áudio: ${error.message || 'formato não suportado'}`;
-      showToast('Não foi possível analisar o áudio', 'error');
+      analysisStatus.textContent = `Não foi possível concluir e salvar a análise: ${error.message || 'formato não suportado'}`;
+      showToast('A análise não foi salva automaticamente', 'error');
     } finally {
       analyzeBtn.disabled = false;
       chooseAudioBtn.disabled = false;
