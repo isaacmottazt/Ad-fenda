@@ -267,6 +267,93 @@ async function deleteUser(userId, userName) {
   else { showToast("Usuário excluído!"); loadUsers(); }
 }
 
+// ========== DASHBOARD OPERACIONAL E SAÚDE ==========
+let adminOperationalMetrics = null;
+
+function formatMetricBytes(value) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let amount = bytes;
+  let unit = -1;
+  while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit += 1; }
+  return `${amount.toLocaleString('pt-BR', { maximumFractionDigits: amount >= 10 ? 1 : 2 })} ${units[unit]}`;
+}
+
+function formatMetricDate(value) {
+  if (!value) return 'sem registro';
+  try { return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)); }
+  catch { return 'data inválida'; }
+}
+
+function metricStatusLabel(status) {
+  return status === 'healthy' ? 'Operacional' : status === 'attention' ? 'Atenção' : status === 'error' ? 'Indisponível' : 'Não informado';
+}
+
+function renderOperationalMetrics(metrics) {
+  const queue = metrics?.queue || {};
+  const database = metrics?.database || {};
+  const storage = metrics?.storage || {};
+  const catalog = metrics?.catalog || {};
+  const health = metrics?.health || {};
+  const progress = Math.max(0, Math.min(100, Number(queue.progress_percent) || 0));
+  const statusEntries = [
+    ['Banco de dados', health.database, 'database'],
+    ['Storage de áudio e capas', health.storage, 'cloud'],
+    ['Fila de análise', health.analysis_queue, 'queue_music'],
+    ['Agendamento do worker', health.worker_schedule, 'schedule'],
+  ];
+  const summary = document.getElementById('healthSummary');
+  if (summary) summary.innerHTML = statusEntries.map(([label, status, icon]) => `<div class="health-card ${status === 'attention' ? 'attention' : status === 'error' ? 'error' : ''}"><span class="material-symbols-rounded">${icon}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(metricStatusLabel(status))}</small></div></div>`).join('');
+
+  const progressLabel = document.getElementById('healthQueueProgressLabel');
+  if (progressLabel) progressLabel.textContent = `${progress.toLocaleString('pt-BR')}% concluído`;
+  const progressBar = document.getElementById('healthQueueProgressBar');
+  if (progressBar) progressBar.style.width = `${progress}%`;
+  const queueDetails = document.getElementById('healthQueueDetails');
+  if (queueDetails) queueDetails.innerHTML = [
+    ['Total de jobs', queue.total], ['Aguardando', queue.queued], ['Em processamento', queue.processing], ['Concluídos', queue.completed], ['Com falha/retentiva', queue.failed], ['Última conclusão', formatMetricDate(queue.last_completed_at)],
+  ].map(([label, value]) => `<div class="health-detail-row"><span>${escapeHtml(label)}</span><strong>${typeof value === 'number' ? value.toLocaleString('pt-BR') : escapeHtml(value)}</strong></div>`).join('');
+
+  const storageDetails = document.getElementById('healthStorageDetails');
+  if (storageDetails) storageDetails.innerHTML = `<div class="storage-value"><strong>${escapeHtml(formatMetricBytes(database.used_bytes))}</strong><span>uso estimado do banco PostgreSQL</span></div><div class="storage-value"><strong>${escapeHtml(database.available_bytes == null ? 'Não informado' : formatMetricBytes(database.available_bytes))}</strong><span>${escapeHtml(database.available_bytes == null ? (database.limit_note || 'A cota do plano não foi disponibilizada pela API.') : 'espaço disponível conforme a cota informada')}</span></div><div class="storage-value"><strong>${escapeHtml(formatMetricBytes(storage.used_bytes))}</strong><span>${Number(storage.objects || 0).toLocaleString('pt-BR')} objetos no Storage</span></div>`;
+
+  const catalogDetails = document.getElementById('healthCatalogDetails');
+  if (catalogDetails) catalogDetails.innerHTML = [['Músicas', catalog.musics], ['Usuários', catalog.users], ['Artistas', catalog.artists]].map(([label, value]) => `<div class="catalog-detail"><span>${escapeHtml(label)}</span><strong>${Number(value || 0).toLocaleString('pt-BR')}</strong></div>`).join('');
+  const generated = document.getElementById('healthGeneratedAt');
+  if (generated) generated.textContent = `Atualizado ${formatMetricDate(metrics?.generated_at)}`;
+
+  const overviewProgress = document.getElementById('overviewQueueProgress');
+  if (overviewProgress) overviewProgress.textContent = `${progress.toLocaleString('pt-BR')}% concluído`;
+  const overviewStats = document.getElementById('overviewQueueStats');
+  if (overviewStats) overviewStats.textContent = `${Number(queue.queued || 0).toLocaleString('pt-BR')} aguardando · ${Number(queue.processing || 0).toLocaleString('pt-BR')} em processamento`;
+  const overviewDatabase = document.getElementById('overviewDatabaseUsed');
+  if (overviewDatabase) overviewDatabase.textContent = formatMetricBytes(database.used_bytes);
+  const overviewDatabaseNote = document.getElementById('overviewDatabaseNote');
+  if (overviewDatabaseNote) overviewDatabaseNote.textContent = database.available_bytes == null ? 'cota do plano não informada' : `${formatMetricBytes(database.available_bytes)} disponíveis`;
+  const overviewHealth = document.getElementById('overviewHealthStatus');
+  if (overviewHealth) overviewHealth.textContent = Object.values(health).every(status => status === 'healthy') ? 'Operacional' : 'Atenção';
+  const overviewUpdated = document.getElementById('overviewHealthUpdated');
+  if (overviewUpdated) overviewUpdated.textContent = `Atualizado ${formatMetricDate(metrics?.generated_at)}`;
+}
+
+async function loadOperationalMetrics() {
+  const summary = document.getElementById('healthSummary');
+  if (summary && !adminOperationalMetrics) summary.innerHTML = '<div class="health-card is-loading"><span class="material-symbols-rounded">progress_activity</span><div><strong>Consultando serviços…</strong><small>As métricas aparecerão aqui.</small></div></div>';
+  if (!window.supabaseClient?.rpc) return null;
+  const { data, error } = await supabaseClient.rpc('get_admin_operational_metrics');
+  if (error || !data) {
+    if (summary) summary.innerHTML = `<div class="health-card error"><span class="material-symbols-rounded">error</span><div><strong>Não foi possível consultar a saúde</strong><small>${escapeHtml(error?.message || 'Resposta vazia do Supabase.')}</small></div></div>`;
+    const status = document.getElementById('overviewHealthStatus');
+    if (status) status.textContent = 'Indisponível';
+    return null;
+  }
+  adminOperationalMetrics = data;
+  renderOperationalMetrics(data);
+  return data;
+}
+
 // ========== TRIAGEM DE RITMO DO CATÁLOGO ==========
 let adminRhythmRows = [];
 let adminRhythmSelectedIds = new Set();
@@ -1302,6 +1389,7 @@ async function initAdmin() {
     (typeof loadSubmissions === 'function' ? loadSubmissions() : Promise.resolve()),
     (typeof loadMusicRequests === 'function' ? loadMusicRequests() : Promise.resolve()),
     loadPrivacyData(),
+    (typeof loadOperationalMetrics === 'function' ? loadOperationalMetrics() : Promise.resolve()),
   ]);
 
   const tabs = document.querySelectorAll('.admin-tab');
@@ -1313,7 +1401,7 @@ async function initAdmin() {
   }
 
   const TAB_TITLES = {
-    overview: 'Visão geral', users: 'Usuários', privacy: 'Privacidade', musics: 'Músicas', artists: 'Artistas',
+    overview: 'Visão geral', users: 'Usuários', privacy: 'Privacidade', health: 'Saúde do sistema', musics: 'Músicas', artists: 'Artistas',
     submissions: 'Submissões', requests: 'Solicitações', messages: 'Notificações', podcasts: 'Podcasts',
   };
   function switchTab(tabId) {

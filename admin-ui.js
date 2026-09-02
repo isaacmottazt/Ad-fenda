@@ -6,6 +6,7 @@
     overview: 'Visão geral',
     users: 'Usuários',
     privacy: 'Privacidade',
+    health: 'Saúde do sistema',
     musics: 'Músicas',
     artists: 'Artistas',
     submissions: 'Submissões',
@@ -15,7 +16,7 @@
   };
 
   const TAB_ICONS = {
-    overview: 'space_dashboard', users: 'group', privacy: 'privacy_tip',
+    overview: 'space_dashboard', users: 'group', privacy: 'privacy_tip', health: 'monitor_heart',
     musics: 'library_music', artists: 'mic', submissions: 'rate_review', requests: 'playlist_add_check', messages: 'campaign', podcasts: 'podcasts',
   };
 
@@ -241,6 +242,7 @@
     return {
       users: window.loadUsers,
       privacy: window.loadPrivacyData,
+      health: window.loadOperationalMetrics,
       musics: window.loadMusics,
       artists: window.loadArtists,
       submissions: window.loadSubmissions,
@@ -321,12 +323,15 @@
       }
       if (!editing && event.key === '/') { event.preventDefault(); openPalette(); return; }
       if (editing || event.altKey || event.ctrlKey || event.metaKey) return;
-      const shortcut = { g: 'overview', h: 'overview', u: 'users', p: 'privacy', m: 'musics', a: 'artists', r: 'requests', s: 'messages', n: 'messages', o: 'podcasts' }[event.key.toLowerCase()];
+      const shortcut = { g: 'overview', h: 'overview', y: 'health', u: 'users', p: 'privacy', m: 'musics', a: 'artists', r: 'requests', s: 'messages', n: 'messages', o: 'podcasts' }[event.key.toLowerCase()];
       if (shortcut) openTab(shortcut);
       if (event.key === 'Escape') { closeSidebar(); document.getElementById('genericModal')?.classList.remove('active'); }
     });
 
     window.setTimeout(() => { refreshOverview(); restoreTab(); applyMessagesFilter(); }, 900);
+    window.setInterval(() => {
+      if (document.visibilityState === 'visible' && typeof window.loadOperationalMetrics === 'function') window.loadOperationalMetrics();
+    }, 60000);
     let refreshTimer = null;
     const observer = new MutationObserver(() => {
       reapplyFilters();
