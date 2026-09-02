@@ -89,6 +89,7 @@ const STORAGE_BUCKET = 'music-files';
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+window.supabaseClient = supabaseClient;
 
 // ========== CRUD MÚSICAS ==========
 async function loadMusicsFromSupabase() {

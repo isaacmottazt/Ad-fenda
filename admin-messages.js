@@ -667,3 +667,9 @@ async function rejectSubmission(sub) {
   if (error) showToast('Erro ao recusar: ' + error.message, 'error');
   else { showToast('Submissão recusada'); loadSubmissions(); }
 }
+
+// API pública usada pela Visão geral e pelo refresh global do Admin.
+window.loadMessages = loadMessages;
+window.loadSubmissions = loadSubmissions;
+window.refreshAdminMessages = loadMessages;
+window.refreshAdminSubmissions = loadSubmissions;
