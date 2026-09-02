@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
+    "audio-decode": "npm:audio-decode@3.12.0"
+  }
+}
