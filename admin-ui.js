@@ -43,46 +43,72 @@
     if (element) element.textContent = Number.isFinite(value) ? value.toLocaleString('pt-BR') : '—';
   }
 
+  let overviewRefreshPromise = null;
+
+  function withTimeout(promise, timeoutMs = 12000) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error('A consulta demorou mais que o esperado.')), timeoutMs);
+    });
+    return Promise.race([Promise.resolve(promise), timeout]).finally(() => window.clearTimeout(timer));
+  }
+
+  function renderOverviewQueryError(container, title, error) {
+    if (!container) return;
+    container.innerHTML = `<div class="activity-item is-error"><span class="activity-icon"><span class="material-symbols-rounded">error</span></span><span class="activity-body"><strong>${escape(title)}</strong><small>${escape(error?.message || 'Não foi possível carregar esta seção.')}</small></span></div>`;
+  }
+
   async function refreshOverview() {
-    setOverviewMetric('overviewUsersCount', visibleRecordCount(document.getElementById('usersList')));
-    setOverviewMetric('overviewMusicsCount', visibleRecordCount(document.getElementById('musicsList')));
-    setOverviewMetric('overviewArtistsCount', visibleRecordCount(document.getElementById('artistsList')));
+    if (overviewRefreshPromise) return overviewRefreshPromise;
+    overviewRefreshPromise = (async () => {
+      setOverviewMetric('overviewUsersCount', visibleRecordCount(document.getElementById('usersList')));
+      setOverviewMetric('overviewMusicsCount', visibleRecordCount(document.getElementById('musicsList')));
+      setOverviewMetric('overviewArtistsCount', visibleRecordCount(document.getElementById('artistsList')));
 
-    const pendingContainer = document.getElementById('overviewPendingList');
-    const activityContainer = document.getElementById('overviewRecentList');
-    if (!pendingContainer || !activityContainer || !window.supabaseClient) return;
+      const pendingContainer = document.getElementById('overviewPendingList');
+      const activityContainer = document.getElementById('overviewRecentList');
+      if (!pendingContainer || !activityContainer || !window.supabaseClient) return;
 
-    const [pendingResponse, messagesResponse] = await Promise.all([
-      supabaseClient.from('music_submissions').select('id, title, artist, status, created_at', { count: 'exact' }).eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
-      supabaseClient.from('admin_notifications').select('id, title, body, status, created_at, metadata').order('created_at', { ascending: false }).limit(5),
-    ]);
+      pendingContainer.dataset.loading = '1';
+      activityContainer.dataset.loading = '1';
+      const responses = await Promise.all([
+        withTimeout(supabaseClient.from('music_submissions').select('id, title, artist, status, created_at', { count: 'exact' }).eq('status', 'pending').order('created_at', { ascending: false }).limit(5)).then(value => ({ kind: 'pending', ...value })).catch(error => ({ kind: 'pending', data: [], error })),
+        withTimeout(supabaseClient.from('admin_notifications').select('id, title, body, status, created_at, metadata').order('created_at', { ascending: false }).limit(5)).then(value => ({ kind: 'messages', ...value })).catch(error => ({ kind: 'messages', data: [], error })),
+      ]);
+      const pendingResponse = responses.find(item => item.kind === 'pending') || { data: [], error: new Error('Resposta ausente.') };
+      const messagesResponse = responses.find(item => item.kind === 'messages') || { data: [], error: new Error('Resposta ausente.') };
+      const pending = pendingResponse.error ? [] : (pendingResponse.data || []);
+      const messages = messagesResponse.error ? [] : (messagesResponse.data || []);
+      setOverviewMetric('overviewPendingCount', pendingResponse.error ? NaN : (pendingResponse.count ?? pending.length));
 
-    const pending = pendingResponse.error ? [] : (pendingResponse.data || []);
-    const messages = messagesResponse.error ? [] : (messagesResponse.data || []);
-    setOverviewMetric('overviewPendingCount', pendingResponse.count ?? pending.length);
+      if (pendingResponse.error) renderOverviewQueryError(pendingContainer, 'Fila de revisão indisponível', pendingResponse.error);
+      else pendingContainer.innerHTML = pending.length ? pending.map(item => `
+          <button class="activity-item" data-tab="submissions" type="button">
+          <span class="activity-icon"><span class="material-symbols-rounded">music_note</span></span>
+          <span class="activity-body"><strong>${escape(item.title || 'Sem título')}</strong><small>${escape(item.artist || 'Artista não informado')}</small></span>
+          <span class="activity-status" style="color:var(--yellow)">pendente</span>
+        </button>`).join('') : `
+        <div class="activity-item"><span class="activity-icon"><span class="material-symbols-rounded">check_circle</span></span><span class="activity-body"><strong>Tudo em dia</strong><small>Nenhuma submissão pendente agora.</small></span></div>`;
 
-    pendingContainer.innerHTML = pending.length ? pending.map(item => `
-        <button class="activity-item" data-tab="submissions" type="button">
-        <span class="activity-icon"><span class="material-symbols-rounded">music_note</span></span>
-        <span class="activity-body"><strong>${escape(item.title || 'Sem título')}</strong><small>${escape(item.artist || 'Artista não informado')}</small></span>
-        <span class="activity-status" style="color:var(--yellow)">pendente</span>
-      </button>`).join('') : `
-      <div class="activity-item"><span class="activity-icon"><span class="material-symbols-rounded">check_circle</span></span><span class="activity-body"><strong>Tudo em dia</strong><small>Nenhuma submissão pendente agora.</small></span></div>`;
+      if (messagesResponse.error) renderOverviewQueryError(activityContainer, 'Atividade recente indisponível', messagesResponse.error);
+      else activityContainer.innerHTML = messages.length ? messages.map(item => {
+        const icon = TAB_ICONS.messages;
+        const status = item.status === 'sent' ? 'enviado' : (item.status || 'pendente');
+        const date = item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—';
+        return `<button class="activity-item" data-tab="messages" type="button">
+          <span class="activity-icon"><span class="material-symbols-rounded">${icon}</span></span>
+          <span class="activity-body"><strong>${escape(item.title || 'Aviso sem título')}</strong><small>${escape(item.body || '')} · ${date}</small></span>
+          <span class="activity-status">${escape(status)}</span>
+        </button>`;
+      }).join('') : `
+        <div class="activity-item"><span class="activity-icon"><span class="material-symbols-rounded">campaign</span></span><span class="activity-body"><strong>Nenhuma atividade recente</strong><small>Os avisos enviados aparecerão aqui.</small></span></div>`;
 
-    activityContainer.innerHTML = messages.length ? messages.map(item => {
-      const icon = TAB_ICONS.messages;
-      const status = item.status === 'sent' ? 'enviado' : (item.status || 'pendente');
-      const date = item.created_at ? new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—';
-      return `<button class="activity-item" data-tab="messages" type="button">
-        <span class="activity-icon"><span class="material-symbols-rounded">${icon}</span></span>
-        <span class="activity-body"><strong>${escape(item.title || 'Aviso sem título')}</strong><small>${escape(item.body || '')} · ${date}</small></span>
-        <span class="activity-status">${escape(status)}</span>
-      </button>`;
-    }).join('') : `
-      <div class="activity-item"><span class="activity-icon"><span class="material-symbols-rounded">campaign</span></span><span class="activity-body"><strong>Nenhuma atividade recente</strong><small>Os avisos enviados aparecerão aqui.</small></span></div>`;
-
-    bindTabTriggers(pendingContainer);
-    bindTabTriggers(activityContainer);
+      delete pendingContainer.dataset.loading;
+      delete activityContainer.dataset.loading;
+      bindTabTriggers(pendingContainer);
+      bindTabTriggers(activityContainer);
+    })().finally(() => { overviewRefreshPromise = null; });
+    return overviewRefreshPromise;
   }
 
   function bindTabTriggers(scope = document) {
@@ -329,6 +355,14 @@
     });
 
     window.setTimeout(() => { refreshOverview(); restoreTab(); applyMessagesFilter(); }, 900);
+    window.supabaseClient?.auth?.onAuthStateChange?.((event, session) => {
+      if (session && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        window.setTimeout(() => {
+          refreshOverview();
+          if (typeof window.loadOperationalMetrics === 'function') window.loadOperationalMetrics();
+        }, 250);
+      }
+    });
     window.setInterval(() => {
       if (document.visibilityState === 'visible' && typeof window.loadOperationalMetrics === 'function') window.loadOperationalMetrics();
     }, 60000);
@@ -336,7 +370,9 @@
     const observer = new MutationObserver(() => {
       reapplyFilters();
       clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(refreshOverview, 180);
+      refreshTimer = setTimeout(() => {
+        if (!document.hidden) refreshOverview();
+      }, 350);
     });
       ['usersList', 'musicsList', 'artistsList', 'messagesList', 'subsList', 'requestsList', 'podcastsList'].forEach(id => {
       const node = document.getElementById(id);

@@ -51,6 +51,14 @@ function escapeAttr(str) {
   return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function adminWithTimeout(promise, timeoutMs = 12000) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error('A consulta demorou mais que o esperado.')), timeoutMs);
+  });
+  return Promise.race([Promise.resolve(promise), timeout]).finally(() => window.clearTimeout(timer));
+}
+
 // ========== BUSCA CAPA DE MÚSICA (Deezer + iTunes) ==========
 async function fetchCoverFromDeezer(artist, track) {
   const normalize = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -342,7 +350,13 @@ async function loadOperationalMetrics() {
   const summary = document.getElementById('healthSummary');
   if (summary && !adminOperationalMetrics) summary.innerHTML = '<div class="health-card is-loading"><span class="material-symbols-rounded">progress_activity</span><div><strong>Consultando serviços…</strong><small>As métricas aparecerão aqui.</small></div></div>';
   if (!window.supabaseClient?.rpc) return null;
-  const { data, error } = await supabaseClient.rpc('get_admin_operational_metrics');
+  let data;
+  let error;
+  try {
+    ({ data, error } = await adminWithTimeout(supabaseClient.rpc('get_admin_operational_metrics')));
+  } catch (requestError) {
+    error = requestError;
+  }
   if (error || !data) {
     if (summary) summary.innerHTML = `<div class="health-card error"><span class="material-symbols-rounded">error</span><div><strong>Não foi possível consultar a saúde</strong><small>${escapeHtml(error?.message || 'Resposta vazia do Supabase.')}</small></div></div>`;
     const status = document.getElementById('overviewHealthStatus');
@@ -488,16 +502,28 @@ function buildRhythmUpdates(row) {
 async function saveRhythmRowResult(row) {
   const updates = buildRhythmUpdates(row);
   if (!Object.keys(updates).length) return { saved: false };
-  const { error } = await supabaseClient.from('musics').update(updates).eq('id', row.music.id);
-  if (error) {
-    row.status = 'error';
-    row.error = `Falha ao salvar automaticamente: ${error.message}`;
-    return { saved: false, error };
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await adminWithTimeout(supabaseClient.from('musics').update(updates).eq('id', row.music.id));
+      if (!response.error) {
+        row.music = { ...row.music, ...updates };
+        row.status = 'saved';
+        row.error = '';
+        return { saved: true };
+      }
+      lastError = response.error;
+    } catch (requestError) {
+      lastError = requestError;
+    }
+    if (attempt === 0) {
+      try { await supabaseClient.auth.refreshSession(); } catch (_) {}
+      await new Promise(resolve => window.setTimeout(resolve, 450));
+    }
   }
-  row.music = { ...row.music, ...updates };
-  row.status = 'saved';
-  row.error = '';
-  return { saved: true };
+  row.status = 'error';
+  row.error = `Falha ao salvar automaticamente: ${lastError?.message || 'não foi possível conectar ao Supabase'}`;
+  return { saved: false, error: lastError };
 }
 
 async function runRhythmRowsInParallel(rows, worker, concurrency = 3) {
@@ -1378,19 +1404,18 @@ async function initAdmin() {
   const isAdmin = await checkAdminAndRedirect();
   if (!isAdmin) return;
 
-  await Promise.all([
+  const bootTasks = [
     loadUsers(),
     loadMusics(),
     loadArtists(),
     loadPodcasts(),
-    // A versão anterior nunca carregava mensagens no boot —
-    // a aba começava vazia até você enviar algo
     (typeof loadMessages === 'function' ? loadMessages() : Promise.resolve()),
     (typeof loadSubmissions === 'function' ? loadSubmissions() : Promise.resolve()),
     (typeof loadMusicRequests === 'function' ? loadMusicRequests() : Promise.resolve()),
     loadPrivacyData(),
     (typeof loadOperationalMetrics === 'function' ? loadOperationalMetrics() : Promise.resolve()),
-  ]);
+  ];
+  await Promise.allSettled(bootTasks.map(task => adminWithTimeout(task)));
 
   const tabs = document.querySelectorAll('.admin-tab');
   const panes = document.querySelectorAll('.tab-pane');
