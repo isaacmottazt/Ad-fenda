@@ -68,6 +68,149 @@
     return selectedRequestId == null ? null : requestStore.get(String(selectedRequestId)) || requestStore.get(selectedRequestId) || null;
   }
 
+  function requestAudioPath(request) {
+    return safeUrl(request?.audio_url);
+  }
+
+  function ensureRequestEnhancementPanel() {
+    if (document.getElementById('requestAudioPlayer')) return;
+    const content = document.getElementById('requestDetailContent');
+    const upload = document.getElementById('requestAudioInput')?.closest('label');
+    if (!content || !upload) return;
+
+    const panel = document.createElement('section');
+    panel.id = 'requestEnhancementPanel';
+    panel.style.cssText = 'margin-top:12px;padding:12px;background:rgba(119,169,255,.055);border:1px solid rgba(119,169,255,.18);border-radius:12px;';
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;"><strong style="font-size:11px;">Áudio e metadados</strong><a id="requestAudioOpenLink" hidden target="_blank" rel="noopener noreferrer" class="btn-icon" style="min-height:30px;text-decoration:none;">Abrir áudio</a></div>
+      <audio id="requestAudioPlayer" controls preload="metadata" hidden style="width:100%;height:36px;margin-bottom:10px;"></audio>
+      <p id="requestAudioEmptyNote" style="margin:0 0 10px;color:var(--text-muted);font-size:10px;line-height:1.45;">O player aparecerá assim que um áudio for anexado pelo aplicativo ou manualmente.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <label style="display:grid;gap:5px;color:var(--text-muted);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;">Título<input id="requestMetaTitle" type="text" style="padding:9px;color:var(--text);background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:9px;font-size:11px;text-transform:none;"></label>
+        <label style="display:grid;gap:5px;color:var(--text-muted);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;">Artista<input id="requestMetaArtist" type="text" style="padding:9px;color:var(--text);background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:9px;font-size:11px;text-transform:none;"></label>
+        <label style="display:grid;gap:5px;color:var(--text-muted);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;">Álbum<input id="requestMetaAlbum" type="text" style="padding:9px;color:var(--text);background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:9px;font-size:11px;text-transform:none;"></label>
+        <label style="display:grid;gap:5px;color:var(--text-muted);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;">Gênero<input id="requestMetaGenre" type="text" style="padding:9px;color:var(--text);background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:9px;font-size:11px;text-transform:none;"></label>
+      </div>
+      <label style="display:grid;gap:5px;margin-top:8px;color:var(--text-muted);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;">Capa (URL)<input id="requestMetaCover" type="url" style="padding:9px;color:var(--text);background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:9px;font-size:11px;text-transform:none;"></label>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;"><button id="requestFindMetadataBtn" type="button" class="btn-icon"><span class="material-symbols-rounded">travel_explore</span>Pesquisar capa e dados</button><button id="requestSaveMetadataBtn" type="button" class="btn-icon"><span class="material-symbols-rounded">save</span>Salvar metadados</button><button id="requestFindLyricsBtn" type="button" class="btn-icon"><span class="material-symbols-rounded">lyrics</span>Procurar letra</button></div>
+      <div id="requestMetadataResults" style="display:grid;gap:7px;margin-top:10px;"></div>
+      <p id="requestLyricsStatus" style="margin:9px 0 0;color:var(--text-muted);font-size:10px;"></p>
+    `;
+    upload.insertAdjacentElement('beforebegin', panel);
+  }
+
+  function updateRequestEnhancementPanel(request) {
+    ensureRequestEnhancementPanel();
+    const audio = document.getElementById('requestAudioPlayer');
+    const openLink = document.getElementById('requestAudioOpenLink');
+    const emptyNote = document.getElementById('requestAudioEmptyNote');
+    const audioUrl = requestAudioPath(request);
+    if (audio) {
+      audio.pause?.();
+      audio.removeAttribute('src');
+      if (audioUrl) { audio.src = audioUrl; audio.hidden = false; }
+      else audio.hidden = true;
+      audio.load?.();
+    }
+    if (openLink) { openLink.hidden = !audioUrl; if (audioUrl) openLink.href = audioUrl; }
+    if (emptyNote) emptyNote.hidden = Boolean(audioUrl);
+    const setInput = (id, value) => { const input = document.getElementById(id); if (input) input.value = value || ''; };
+    setInput('requestMetaTitle', request.title);
+    setInput('requestMetaArtist', request.artist);
+    setInput('requestMetaAlbum', request.album);
+    setInput('requestMetaGenre', request.genre);
+    setInput('requestMetaCover', request.cover_url);
+    const lyricsStatus = document.getElementById('requestLyricsStatus');
+    if (lyricsStatus) lyricsStatus.textContent = request.lyrics_url ? 'Letra sincronizada anexada e pronta para publicação.' : 'A letra será pesquisada apenas quando você solicitar e ficará vinculada a esta solicitação.';
+    const results = document.getElementById('requestMetadataResults');
+    if (results) results.innerHTML = '';
+  }
+
+  async function updateRequestRecord(id, values) {
+    const { data, error } = await supabaseClient.from('music_requests')
+      .update({ ...values, reviewed_by: typeof currentAdminUserId !== 'undefined' ? currentAdminUserId : null, reviewed_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*, profiles:requested_by ( full_name, email )')
+      .maybeSingle();
+    if (error) throw error;
+    if (data) requestStore.set(String(id), data);
+    renderList();
+    updateSummary();
+    return data;
+  }
+
+  async function findRequestMetadata() {
+    const request = currentRequest();
+    if (!request) return;
+    const title = String(document.getElementById('requestMetaTitle')?.value || request.title).trim();
+    const artist = String(document.getElementById('requestMetaArtist')?.value || request.artist).trim();
+    if (!title || !artist) { notify('Preencha título e artista antes de pesquisar.', 'error'); return; }
+    const button = document.getElementById('requestFindMetadataBtn');
+    const resultsNode = document.getElementById('requestMetadataResults');
+    if (button) { button.disabled = true; button.textContent = 'Pesquisando…'; }
+    if (resultsNode) resultsNode.textContent = 'Consultando catálogos musicais…';
+    try {
+      const query = encodeURIComponent(`${artist} ${title}`);
+      const [itunes, deezer] = await Promise.all([
+        fetch(`https://itunes.apple.com/search?term=${query}&entity=musicTrack&limit=5`).then(response => response.ok ? response.json() : { results: [] }).catch(() => ({ results: [] })),
+        fetch(`https://api.deezer.com/search/track?q=${query}&limit=5`).then(response => response.ok ? response.json() : { data: [] }).catch(() => ({ data: [] })),
+      ]);
+      const candidates = [
+        ...(itunes.results || []).map(item => ({ title: item.trackName, artist: item.artistName, album: item.collectionName || '', genre: item.primaryGenreName || '', cover: (item.artworkUrl100 || '').replace('100x100', '600x600'), source: 'iTunes' })),
+        ...(deezer.data || []).map(item => ({ title: item.title, artist: item.artist?.name || '', album: item.album?.title || '', genre: '', cover: item.album?.cover_xl || item.album?.cover_big || item.album?.cover_medium || '', source: 'Deezer' })),
+      ].filter(item => item.title && item.artist).slice(0, 8);
+      if (!resultsNode) return;
+      if (!candidates.length) { resultsNode.textContent = 'Nenhum resultado encontrado. Você pode preencher os campos manualmente.'; return; }
+      resultsNode.innerHTML = candidates.map((item, index) => `<button type="button" class="btn-secondary" data-request-meta-index="${index}" style="width:100%;height:auto;justify-content:flex-start;padding:8px;text-align:left;"><span style="width:34px;height:34px;overflow:hidden;border-radius:8px;background:var(--surface-3);display:grid;place-items:center;flex:0 0 auto;">${item.cover ? `<img src="${esc(safeUrl(item.cover))}" alt="" style="width:100%;height:100%;object-fit:cover;">` : '<span class="material-symbols-rounded">album</span>'}</span><span style="min-width:0;flex:1;"><strong style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.title)}</strong><small style="display:block;margin-top:2px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.artist)} · ${esc(item.album || item.source)}</small></span></button>`).join('');
+      resultsNode.querySelectorAll('[data-request-meta-index]').forEach(node => node.addEventListener('click', () => {
+        const item = candidates[Number(node.dataset.requestMetaIndex)];
+        const setInput = (id, value) => { const input = document.getElementById(id); if (input) input.value = value || ''; };
+        setInput('requestMetaTitle', item.title); setInput('requestMetaArtist', item.artist); setInput('requestMetaAlbum', item.album); setInput('requestMetaGenre', item.genre); setInput('requestMetaCover', item.cover);
+        resultsNode.innerHTML = '<span style="color:var(--green);font-size:10px;">Resultado aplicado aos campos. Revise e clique em Salvar metadados.</span>';
+      }));
+    } finally {
+      if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-rounded">travel_explore</span>Pesquisar capa e dados'; }
+    }
+  }
+
+  async function saveRequestMetadata() {
+    const request = currentRequest();
+    if (!request) return;
+    const value = id => String(document.getElementById(id)?.value || '').trim();
+    const title = value('requestMetaTitle');
+    const artist = value('requestMetaArtist');
+    if (!title || !artist) { notify('Título e artista são obrigatórios.', 'error'); return; }
+    try {
+      await updateRequestRecord(request.id, { title, artist, album: value('requestMetaAlbum') || null, genre: value('requestMetaGenre') || null, cover_url: value('requestMetaCover') || null });
+      notify('Metadados da solicitação salvos. A publicação continuará sob sua revisão.', 'success');
+    } catch (error) { notify('Não foi possível salvar metadados: ' + (error.message || error), 'error'); }
+  }
+
+  async function findRequestLyrics() {
+    const request = currentRequest();
+    if (!request) return;
+    const title = String(document.getElementById('requestMetaTitle')?.value || request.title).trim();
+    const artist = String(document.getElementById('requestMetaArtist')?.value || request.artist).trim();
+    const status = document.getElementById('requestLyricsStatus');
+    if (!title || !artist) { notify('Preencha título e artista antes de procurar a letra.', 'error'); return; }
+    if (status) status.textContent = 'Buscando letra sincronizada…';
+    try {
+      const lyrics = await fetchSyncedLyricsFromLRCLIB(artist, title);
+      if (!lyrics) { if (status) status.textContent = 'Nenhuma letra sincronizada foi encontrada. Você pode manter a solicitação sem letra.'; return; }
+      const safeName = `${title.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '') || 'letra'}-${Date.now()}.lrc`;
+      const path = `request-lyrics/${request.id}/${safeName}`;
+      const { error: uploadError } = await supabaseClient.storage.from('music-files').upload(path, new Blob([lyrics], { type: 'text/plain' }), { contentType: 'text/plain', upsert: false });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabaseClient.storage.from('music-files').getPublicUrl(path);
+      await updateRequestRecord(request.id, { lyrics_url: urlData.publicUrl });
+      if (status) status.textContent = 'Letra sincronizada anexada. Ela será publicada junto com a música quando você aprovar.';
+      notify('Letra sincronizada anexada à solicitação.', 'success');
+    } catch (error) {
+      if (status) status.textContent = 'Não foi possível anexar a letra agora.';
+      notify('Falha ao procurar ou salvar letra: ' + (error.message || error), 'error');
+    }
+  }
+
   function renderDetail(request) {
     const empty = document.getElementById('requestDetailEmpty');
     const content = document.getElementById('requestDetailContent');
@@ -107,6 +250,7 @@
     if (approve) { approve.disabled = terminal || request.status === 'approved'; approve.innerHTML = request.status === 'approved' ? '<span class="material-symbols-rounded">check_circle</span>Aprovada' : '<span class="material-symbols-rounded">fact_check</span>Marcar aprovada'; }
     if (reject) { reject.disabled = terminal; reject.innerHTML = request.status === 'blocked' || request.status === 'rejected' ? '<span class="material-symbols-rounded">block</span>Bloqueada' : '<span class="material-symbols-rounded">block</span>Bloquear'; }
     if (publish) publish.disabled = terminal || !request.audio_url;
+    updateRequestEnhancementPanel(request);
   }
 
   function selectRequest(id) {
@@ -120,7 +264,9 @@
     const status = document.getElementById('requestsFilterSelect')?.value || 'all';
     return [...requestStore.values()].filter(request => {
       const haystack = [request.title, request.artist, request.search_query, request.source_provider, requesterName(request), request.status].join(' ').toLowerCase();
-      return (!query || haystack.includes(query)) && (status === 'all' || request.status === status);
+      const matchesStatus = status === 'all' || request.status === status;
+      const matchesSpotify = status === 'spotify' && String(request.source_provider || '').toLowerCase() === 'spotify';
+      return (!query || haystack.includes(query)) && (matchesStatus || matchesSpotify);
     });
   }
 
@@ -223,6 +369,7 @@
       p_style: null,
       p_style_tags: null,
       p_notes: null,
+      p_lrc: request.lyrics_url || null,
     });
     if (error) { notify('Não foi possível publicar: ' + error.message, 'error'); return; }
     notify('Música publicada no catálogo com sucesso.', 'success');
@@ -240,6 +387,10 @@
     document.getElementById('requestApproveBtn')?.addEventListener('click', () => { const request = currentRequest(); if (request) updateRequestStatus(request.id, 'approved'); });
     document.getElementById('requestRejectBtn')?.addEventListener('click', () => { const request = currentRequest(); if (request) updateRequestStatus(request.id, 'blocked'); });
     document.getElementById('requestPublishBtn')?.addEventListener('click', () => { const request = currentRequest(); if (request) publishRequest(request.id); });
+    ensureRequestEnhancementPanel();
+    document.getElementById('requestFindMetadataBtn')?.addEventListener('click', findRequestMetadata);
+    document.getElementById('requestSaveMetadataBtn')?.addEventListener('click', saveRequestMetadata);
+    document.getElementById('requestFindLyricsBtn')?.addEventListener('click', findRequestLyrics);
   }
 
   window.loadMusicRequests = loadMusicRequests;
