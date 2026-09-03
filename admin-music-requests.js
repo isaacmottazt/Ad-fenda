@@ -367,7 +367,7 @@
       p_cover: request.cover_url || null,
       p_genre: request.genre || null,
       p_style: null,
-      p_style_tags: null,
+      p_style_tags: [],
       p_notes: null,
       p_lrc: request.lyrics_url || null,
     });

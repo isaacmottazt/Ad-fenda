@@ -1,8 +1,3 @@
-ALTER TABLE public.music_requests
-  ADD COLUMN IF NOT EXISTS lyrics_url text;
-
-DROP FUNCTION IF EXISTS public.admin_publish_music_request(bigint, text, text, text, text, text[], text);
-
 CREATE OR REPLACE FUNCTION public.admin_publish_music_request(
   p_request_id bigint,
   p_src text,
@@ -25,24 +20,16 @@ BEGIN
   IF NOT public.is_fenda_admin() THEN
     RAISE EXCEPTION 'Apenas administradores podem publicar solicitações';
   END IF;
-
   IF nullif(btrim(coalesce(p_src, '')), '') IS NULL THEN
     RAISE EXCEPTION 'Um áudio autorizado é obrigatório para publicar';
   END IF;
-
-  SELECT * INTO v_request
-  FROM public.music_requests
-  WHERE id = p_request_id
-  FOR UPDATE;
-
+  SELECT * INTO v_request FROM public.music_requests WHERE id = p_request_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Solicitação não encontrada';
   END IF;
-
   IF v_request.status IN ('rejected', 'blocked', 'published') THEN
     RAISE EXCEPTION 'Esta solicitação não pode ser publicada no estado atual';
   END IF;
-
   INSERT INTO public.musics (
     title, artist, src, cover, lrc, genre, album, release_date,
     track_order, visibility, style, style_tags
@@ -61,7 +48,6 @@ BEGIN
     COALESCE(p_style_tags, ARRAY[]::text[])
   )
   RETURNING id INTO v_music_id;
-
   UPDATE public.music_requests
   SET status = 'published',
       audio_url = p_src,
@@ -74,10 +60,6 @@ BEGIN
       reviewed_at = now(),
       updated_at = now()
   WHERE id = p_request_id;
-
   RETURN v_music_id;
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.admin_publish_music_request(bigint, text, text, text, text, text[], text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.admin_publish_music_request(bigint, text, text, text, text, text[], text, text) TO authenticated;
